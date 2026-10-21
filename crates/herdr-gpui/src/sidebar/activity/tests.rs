@@ -8,6 +8,7 @@ use crate::{
 
 mod back;
 mod bubbles;
+mod busy_pulse;
 mod counts;
 mod layout;
 mod sections;

@@ -474,39 +474,27 @@ impl HerdrWindow {
             BarState::Selected => theme.foreground,
             BarState::Idle => theme.muted,
         };
-        let icon = svg()
-            .path(icon)
-            .size(px(ICON))
-            .flex_none()
-            .text_color(rgb(ink));
-        let icon = if busy {
-            icon.with_animation(
-                SharedString::from(format!("{id}-busy")),
-                Animation::new(BUSY_PULSE).repeat(),
-                |icon, delta| icon.opacity(0.35 + 0.65 * (delta * std::f32::consts::PI).sin()),
-            )
-            .into_any_element()
-        } else {
-            icon.into_any_element()
-        };
         let bubble = bubble.filter(|bubble| bubble.count > 0);
-        let glyph = div()
-            .debug_selector(move || format!("{id}-glyph"))
-            .relative()
-            .child(icon)
-            .when_some(bubble, |glyph, bubble| {
-                // Held by its right edge, inside the bar's border, so a wider
-                // count such as `99+` grows over the icon rather than past the
-                // bar into the column beside it.
-                glyph.child(
-                    div()
-                        .debug_selector(move || format!("{id}-bubble"))
-                        .absolute()
-                        .top(px(-8.))
-                        .right(px(BUBBLE_END))
-                        .child(self.count_bubble(bubble)),
-                )
-            });
+        let chip = bubble.map(|Bubble { count, unseen }| {
+            let fill = if unseen { theme.primary() } else { theme.muted };
+            Chip {
+                count,
+                fill,
+                ink: theme.text_on(fill),
+            }
+        });
+        let glyph = move || bar_glyph(id, icon, ink, busy, chip);
+        // A pulse redraws the view drawing it on each of its frames. Drawn in
+        // the window's mark layer, that is the layer and not the cached
+        // sidebar the bar sits in, which would otherwise rebuild every row
+        // for as long as an agent works. The bubble goes with the icon so it
+        // stays drawn over it.
+        let glyph = if busy {
+            crate::mark_layer::layered(ICON, 1., move || glyph().into_any_element())
+                .into_any_element()
+        } else {
+            glyph().into_any_element()
+        };
         let spoken = match bubble {
             Some(Bubble {
                 count,
@@ -553,31 +541,6 @@ impl HerdrWindow {
                     .hover(move |style| style.bg(rgb(hover)))
             })
             .child(glyph)
-    }
-
-    /// A count in the accent while it holds something unseen, else muted.
-    fn count_bubble(&self, Bubble { count, unseen }: Bubble) -> Div {
-        let theme = &self.theme;
-        let text = if count > 99 {
-            "99+".to_owned()
-        } else {
-            count.to_string()
-        };
-        let fill = if unseen { theme.primary() } else { theme.muted };
-        div()
-            .min_w(px(14.))
-            .h(px(14.))
-            .px(px(3.))
-            .flex()
-            .items_center()
-            .justify_center()
-            .rounded_full()
-            .bg(rgb(fill))
-            .text_color(rgb(theme.text_on(fill)))
-            .text_size(px(9.))
-            .line_height(px(12.))
-            .whitespace_nowrap()
-            .child(text)
     }
 
     /// The section's name over the sidebar, across its width, ended by the
@@ -627,6 +590,85 @@ enum BarState {
 struct Bubble {
     count: usize,
     unseen: bool,
+}
+
+/// A bubble's count and colours, taken from the theme while the bar renders,
+/// so the mark layer can draw it again on frames of its own.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Chip {
+    count: usize,
+    fill: u32,
+    ink: u32,
+}
+
+/// A bar button's icon in `ink`, under its count bubble. A `busy` icon
+/// pulses.
+fn bar_glyph(
+    id: &'static str,
+    icon: &'static str,
+    ink: u32,
+    busy: bool,
+    chip: Option<Chip>,
+) -> Div {
+    let icon = svg()
+        .path(icon)
+        .size(px(ICON))
+        .flex_none()
+        .text_color(rgb(ink));
+    let icon = if busy {
+        icon.with_animation(
+            SharedString::from(format!("{id}-busy")),
+            // On the app's clock, as the sidebar's spinners are: the layer
+            // builds the icon afresh on each of its frames, so it keeps no
+            // animation state of its own. Capped like them too, since each
+            // frame it asks for redraws the layer and the window over it.
+            Animation::new(BUSY_PULSE).repeat_synced().with_max_fps(30.),
+            |icon, delta| icon.opacity(0.35 + 0.65 * (delta * std::f32::consts::PI).sin()),
+        )
+        .into_any_element()
+    } else {
+        icon.into_any_element()
+    };
+    div()
+        .debug_selector(move || format!("{id}-glyph"))
+        .relative()
+        .child(icon)
+        .when_some(chip, |glyph, chip| {
+            // Held by its right edge, inside the bar's border, so a wider
+            // count such as `99+` grows over the icon rather than past the
+            // bar into the column beside it.
+            glyph.child(
+                div()
+                    .debug_selector(move || format!("{id}-bubble"))
+                    .absolute()
+                    .top(px(-8.))
+                    .right(px(BUBBLE_END))
+                    .child(count_bubble(chip)),
+            )
+        })
+}
+
+/// A count in the accent while it holds something unseen, else muted.
+fn count_bubble(Chip { count, fill, ink }: Chip) -> Div {
+    let text = if count > 99 {
+        "99+".to_owned()
+    } else {
+        count.to_string()
+    };
+    div()
+        .min_w(px(14.))
+        .h(px(14.))
+        .px(px(3.))
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded_full()
+        .bg(rgb(fill))
+        .text_color(rgb(ink))
+        .text_size(px(9.))
+        .line_height(px(12.))
+        .whitespace_nowrap()
+        .child(text)
 }
 
 fn panel_selector(panel: ActivityPanel) -> &'static str {
