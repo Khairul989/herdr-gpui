@@ -17,7 +17,16 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
 /// Helpers defined once per remote session. `herdr_field` prints the string
 /// or number at a JSON path from stdin. A real parser is required: matching
 /// only the last key can select another provider's credentials.
-const PRELUDE: &str = r#"PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.bun/bin:$HOME/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"
+///
+/// Linuxbrew goes on `PATH` only where it is installed. On macOS `/home` is
+/// an automount, so each command looked up through a missing directory
+/// there costs a directory-service query; the local port scan runs dozens of
+/// commands every few seconds and kept `opendirectoryd` busy.
+const PRELUDE: &str = r#"herdr_linuxbrew=
+if [ -d /home/linuxbrew/.linuxbrew/bin ]; then
+    herdr_linuxbrew=/home/linuxbrew/.linuxbrew/bin:
+fi
+PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.bun/bin:$HOME/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:$herdr_linuxbrew$PATH"
 export PATH
 herdr_field() {
     if command -v python3 >/dev/null 2>&1; then

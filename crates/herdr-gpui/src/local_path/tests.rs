@@ -2,6 +2,8 @@ use std::path::{Path, PathBuf};
 
 use super::*;
 
+const LINUXBREW: &str = "/home/linuxbrew/.linuxbrew/bin";
+
 fn fallback() -> Vec<PathBuf> {
     std::env::split_paths(&local_path()).collect()
 }
@@ -14,19 +16,21 @@ fn fallback_includes_homebrew() {
             .iter()
             .any(|path| path == Path::new("/opt/homebrew/bin"))
     );
-    assert!(
-        paths
-            .iter()
-            .any(|path| path == Path::new("/home/linuxbrew/.linuxbrew/bin"))
+    // Linux only: on macOS `/home` is an automount, so a missing directory
+    // there makes every command search a directory-service query.
+    assert_eq!(
+        paths.iter().any(|path| path == Path::new(LINUXBREW)),
+        cfg!(target_os = "linux")
     );
 }
 
 /// Linuxbrew is appended so an existing `/usr/local` install keeps precedence.
+#[cfg(target_os = "linux")]
 #[test]
 fn linuxbrew_follows_usr_local() {
     let paths = fallback();
     let position = |dir: &str| paths.iter().position(|path| path == Path::new(dir));
-    assert!(position("/usr/local/bin") < position("/home/linuxbrew/.linuxbrew/bin"));
+    assert!(position("/usr/local/bin") < position(LINUXBREW));
 }
 
 #[test]
