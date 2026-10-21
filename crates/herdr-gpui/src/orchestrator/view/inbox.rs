@@ -444,7 +444,7 @@ impl OrchestratorView {
                 look.icon("icons/refresh.svg", 14., look.theme.muted)
                     .with_animation(
                         "orchestrator-refresh-spin",
-                        Animation::new(SPIN).repeat(),
+                        Animation::new(SPIN).repeat().with_max_fps(30.),
                         |icon, delta| {
                             icon.with_transformation(Transformation::rotate(percentage(delta)))
                         },

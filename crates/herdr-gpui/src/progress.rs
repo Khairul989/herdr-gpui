@@ -28,7 +28,9 @@ pub(crate) fn bar(name: &'static str, progress: Progress, accent: Hsla, track: H
             .w(relative(fraction.clamp(0., 1.)))
             .with_animation(
                 ElementId::Name(format!("{name}-pulse").into()),
-                Animation::new(Duration::from_millis(1600)).repeat(),
+                Animation::new(Duration::from_millis(1600))
+                    .repeat()
+                    .with_max_fps(30.),
                 |fill, delta| fill.opacity(0.7 + 0.3 * (delta * std::f32::consts::TAU).cos()),
             )
             .into_any_element(),
@@ -37,7 +39,9 @@ pub(crate) fn bar(name: &'static str, progress: Progress, accent: Hsla, track: H
             .w(relative(0.3))
             .with_animation(
                 ElementId::Name(format!("{name}-busy").into()),
-                Animation::new(Duration::from_secs(2)).repeat(),
+                Animation::new(Duration::from_secs(2))
+                    .repeat()
+                    .with_max_fps(30.),
                 |fill, delta| {
                     fill.left(relative(
                         0.35 * (1. - (delta * std::f32::consts::TAU).cos()),
