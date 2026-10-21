@@ -118,7 +118,9 @@ impl HerdrWindow {
                             refresh
                                 .with_animation(
                                     "usage-refreshing",
-                                    Animation::new(Duration::from_secs(1)).repeat(),
+                                    Animation::new(Duration::from_secs(1))
+                                        .repeat()
+                                        .with_max_fps(30.),
                                     |icon, delta| {
                                         icon.with_transformation(Transformation::rotate(
                                             percentage(delta),
