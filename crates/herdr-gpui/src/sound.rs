@@ -1,12 +1,14 @@
 //! Local TUI sound settings and endpoint-scoped semantic notification policy.
 //! Policy adapted from Herdr; see SOUND-NOTICE.md.
 mod config;
+mod error;
 mod playback;
 #[cfg(test)]
 mod tests;
 
 use crate::state::LiveState;
 use config::Settings;
+pub use error::Error;
 use herdr_client::protocol::{AgentStatus, SemanticNotification, SemanticNotificationKind as Kind};
 use std::{
     collections::VecDeque,
