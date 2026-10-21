@@ -9,14 +9,12 @@ pub(crate) fn local_path() -> OsString {
         );
     }
     if cfg!(unix) {
-        dirs.extend(
-            [
-                "/opt/homebrew/bin",
-                "/usr/local/bin",
-                "/home/linuxbrew/.linuxbrew/bin",
-            ]
-            .map(PathBuf::from),
-        );
+        dirs.extend(["/opt/homebrew/bin", "/usr/local/bin"].map(PathBuf::from));
+    }
+    // Linuxbrew is Linux only. On macOS `/home` is an automount, where every
+    // command looked up through a missing directory costs a directory query.
+    if cfg!(target_os = "linux") {
+        dirs.push("/home/linuxbrew/.linuxbrew/bin".into());
     }
     let inherited = std::env::var_os("PATH").unwrap_or_default();
     dirs.extend(std::env::split_paths(&inherited));

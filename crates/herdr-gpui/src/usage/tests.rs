@@ -32,6 +32,8 @@ mod rejected_backoff;
 #[cfg(unix)]
 mod remote_hosts;
 mod section;
+#[cfg(unix)]
+mod shell_path;
 mod shown_providers;
 mod status_bar_room;
 mod wsl_hosts;
