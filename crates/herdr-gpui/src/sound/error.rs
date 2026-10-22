@@ -1,4 +1,5 @@
-//! Failures loading sound settings and playing a sound.
+//! Why a notification sound did not play or its settings did not load.
+
 use std::{io, path::PathBuf};
 
 #[derive(Debug, thiserror::Error)]
@@ -23,4 +24,24 @@ pub enum Error {
     Stream(#[from] rodio::cpal::StreamError),
     #[error("Audio playback timed out")]
     Timeout,
+}
+
+// The audio library's failures convert straight into the crate's error, so
+// playback keeps using `?` on them.
+impl From<rodio::decoder::DecoderError> for crate::Error {
+    fn from(error: rodio::decoder::DecoderError) -> Self {
+        Self::Sound(error.into())
+    }
+}
+
+impl From<rodio::DeviceSinkError> for crate::Error {
+    fn from(error: rodio::DeviceSinkError) -> Self {
+        Self::Sound(error.into())
+    }
+}
+
+impl From<rodio::cpal::StreamError> for crate::Error {
+    fn from(error: rodio::cpal::StreamError) -> Self {
+        Self::Sound(error.into())
+    }
 }
