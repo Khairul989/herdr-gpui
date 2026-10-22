@@ -445,6 +445,7 @@ impl HerdrWindow {
     /// shown on the refresh it arrives for instead of on the next timer tick.
     fn poll_on_frame(this: WeakEntity<Self>, window: &mut Window) {
         window.on_next_frame(move |window, cx| {
+            crate::frame_stats::count(crate::frame_stats::Counter::FrameCallback);
             let alive = this.update(cx, |view, cx| {
                 if view
                     .endpoints
@@ -497,6 +498,7 @@ impl HerdrWindow {
     }
 
     fn tick(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        crate::frame_stats::count(crate::frame_stats::Counter::Tick);
         self.updater.set_channel(self.config.updates.channel);
         if self.updater.poll() {
             match self.updater.commit_restart() {

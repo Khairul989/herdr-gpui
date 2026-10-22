@@ -755,6 +755,9 @@ impl TerminalPainter {
         }
         // Kitty draws `z >= 0` over the text, decorations and cursor included.
         paint_errors += self.paint_images(&above, window);
+        if draws(Layer::Backgrounds) {
+            crate::frame_stats::count(crate::frame_stats::Counter::Paint);
+        }
         #[cfg(feature = "integration-test")]
         {
             let total = cx.default_global::<crate::performance::Counts>();
