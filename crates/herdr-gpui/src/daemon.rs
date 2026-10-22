@@ -101,18 +101,9 @@ pub(crate) fn executable() -> PathBuf {
                 }),
         )
         .chain(
-            [
-                PathBuf::from("/opt/homebrew/bin/herdr"),
-                PathBuf::from("/usr/local/bin/herdr"),
-            ]
-            .into_iter()
-            .filter(|_| cfg!(unix)),
-        )
-        // Only on Linux: on macOS `/home` is an automount, and a missing
-        // path there costs a directory-service query.
-        .chain(
-            Some(PathBuf::from("/home/linuxbrew/.linuxbrew/bin/herdr"))
-                .filter(|_| cfg!(target_os = "linux")),
+            crate::local_path::HOMEBREW_DIRS
+                .iter()
+                .map(|dir| Path::new(dir).join(NAME)),
         );
     candidates
         .into_iter()

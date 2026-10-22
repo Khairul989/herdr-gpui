@@ -6,9 +6,10 @@ mod playback;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use error::Error;
+
 use crate::state::LiveState;
 use config::Settings;
-pub use error::Error;
 use herdr_client::protocol::{AgentStatus, SemanticNotification, SemanticNotificationKind as Kind};
 use std::{
     collections::VecDeque,

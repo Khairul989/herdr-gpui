@@ -21,6 +21,8 @@ mod footer_fit;
 mod keychain_access;
 mod labels;
 #[cfg(unix)]
+mod linuxbrew_path;
+#[cfg(unix)]
 mod opencode_auth;
 mod pace_exhausted;
 mod provider_data;
@@ -32,8 +34,6 @@ mod rejected_backoff;
 #[cfg(unix)]
 mod remote_hosts;
 mod section;
-#[cfg(unix)]
-mod shell_path;
 mod shown_providers;
 mod status_bar_room;
 mod wsl_hosts;
