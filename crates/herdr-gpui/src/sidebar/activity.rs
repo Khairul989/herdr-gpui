@@ -616,15 +616,12 @@ fn bar_glyph(
         .flex_none()
         .text_color(rgb(ink));
     let icon = if busy {
-        icon.with_animation(
-            SharedString::from(format!("{id}-busy")),
-            // On the app's clock, as the sidebar's spinners are: the layer
-            // builds the icon afresh on each of its frames, so it keeps no
-            // animation state of its own. Capped like them too, since each
-            // frame it asks for redraws the layer and the window over it.
-            Animation::new(BUSY_PULSE).repeat_synced().with_max_fps(30.),
-            |icon, delta| icon.opacity(0.35 + 0.65 * (delta * std::f32::consts::PI).sin()),
-        )
+        // On the app's animation clock, as the sidebar's spinners are: the
+        // layer builds the icon afresh on each of its frames, and each tick
+        // redraws the layer and the window over it.
+        crate::animation_clock::looping(icon, BUSY_PULSE, |icon, delta| {
+            icon.opacity(0.35 + 0.65 * (delta * std::f32::consts::PI).sin())
+        })
         .into_any_element()
     } else {
         icon.into_any_element()

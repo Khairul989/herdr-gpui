@@ -12,17 +12,14 @@ use super::STATUS_DOT_UNKNOWN;
 use crate::config::StatusIcons;
 use gpui::{prelude::*, *};
 use herdr_client::protocol::AgentStatus;
-use std::time::Duration;
 
-/// Superset's `AsciiSpinner` frames, 80ms each.
+/// Superset's `AsciiSpinner` frames, one a tick as the herdr TUI shows them.
 const BRAILLE: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-const BRAILLE_FRAME_MS: u64 = 80;
 /// A blocked cell empties dot by dot and fills again, after Zed's long
 /// spinner. It starts full, so a held cell under reduced motion is solid.
 const BREATHE: [&str; 14] = [
     "⣿", "⣷", "⣶", "⣦", "⣤", "⣄", "⣀", "⡀", "⣀", "⣄", "⣤", "⣦", "⣶", "⣷",
 ];
-const BREATHE_FRAME_MS: u64 = 70;
 
 /// The mark `set` draws for `status` in a `size` slot, in the status `color`.
 pub(super) fn mark(set: StatusIcons, status: AgentStatus, size: f32, color: u32) -> AnyElement {
@@ -45,17 +42,10 @@ fn braille_set(status: AgentStatus, size: f32, color: u32) -> AnyElement {
             .into_any_element()
     };
     match status {
-        AgentStatus::Working => {
-            braille("status-braille", &BRAILLE, BRAILLE_FRAME_MS, size, color).into_any_element()
+        AgentStatus::Working => braille("status-braille", &BRAILLE, size, color).into_any_element(),
+        AgentStatus::Blocked => {
+            braille("status-braille-fill", &BREATHE, size, color).into_any_element()
         }
-        AgentStatus::Blocked => braille(
-            "status-braille-fill",
-            &BREATHE,
-            BREATHE_FRAME_MS,
-            size,
-            color,
-        )
-        .into_any_element(),
         AgentStatus::Done => still("status-braille-done", "⠿"),
         AgentStatus::Idle => still("status-braille-idle", "⠒"),
         AgentStatus::Unknown => still("status-braille-unknown", "⠂"),
@@ -152,21 +142,18 @@ fn dots(glyph: &str, rows: usize, size: f32, color: u32) -> Div {
         }))
 }
 
-/// A braille cell stepping through `frames`, one every `frame_ms`. The
-/// selector names the animation too, so each kind keeps its own clock.
+/// A braille cell stepping through `frames`, one each tick of the app's
+/// animation clock.
 fn braille(
     selector: &'static str,
     frames: &'static [&'static str],
-    frame_ms: u64,
     size: f32,
     color: u32,
 ) -> impl IntoElement {
     let rows = rows(frames);
-    braille_cell(selector, size).with_animation(
-        selector,
-        Animation::new(Duration::from_millis(frame_ms * frames.len() as u64))
-            .repeat_synced()
-            .with_max_fps(1000. / frame_ms as f32),
+    crate::animation_clock::looping(
+        braille_cell(selector, size),
+        crate::animation_clock::steps(frames.len()),
         move |cell, delta| {
             let glyph = frames[frame_index(frames.len(), delta)];
             cell.child(dots(glyph, rows, size, color))

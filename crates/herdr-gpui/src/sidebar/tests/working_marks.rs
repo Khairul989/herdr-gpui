@@ -86,8 +86,8 @@ fn every_set_moves_while_working_and_rests_when_settled(cx: &mut TestAppContext)
 }
 
 /// A moving mark keeps asking for its next frame as the clock runs, and a
-/// settled one never does. Under reduced motion nothing asks: GPUI holds
-/// every animation on its first frame.
+/// settled one never does. Under reduced motion nothing asks: the app's
+/// animation clock holds every loop on its first frame.
 #[gpui::test]
 fn moving_marks_redraw_as_time_passes_and_rest_under_reduced_motion(cx: &mut TestAppContext) {
     for reduced in [false, true] {

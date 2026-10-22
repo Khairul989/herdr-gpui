@@ -1,8 +1,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-//! A looping GPUI animation without a frame-rate cap asks for a frame on
-//! every display refresh, up to 120 a second, and re-renders the view
-//! drawing it and every view above it. Each one in the app must cap its
-//! rate with `with_max_fps`.
+//! A looping GPUI animation runs its own timer and redraws its view on it,
+//! out of step with every other loop, so a few spinners redraw the window
+//! many times a tick. Every loop in the app runs on the shared clock in
+//! `animation_clock.rs` instead, which redraws all of them once a tick.
 
 use std::{
     fs,
@@ -36,29 +36,26 @@ fn code(text: &str) -> String {
 }
 
 #[test]
-fn every_looping_animation_caps_its_frame_rate() {
+fn every_looping_animation_runs_on_the_shared_clock() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
     let mut files = Vec::new();
     sources(&root, &mut files);
-    let (mut animations, mut uncapped) = (0, Vec::new());
+    let (mut shared, mut own) = (0, Vec::new());
     for file in files {
         let text = code(&fs::read_to_string(&file).unwrap());
-        for (start, _) in text.match_indices("Animation::new(") {
-            animations += 1;
-            // The animation is configured before the animator closure that
-            // follows it as the next argument.
-            let rest = &text[start..];
-            let chain = &rest[..rest.find('|').unwrap_or(rest.len())];
-            if chain.contains(".repeat") && !chain.contains("with_max_fps") {
+        shared += text.matches("animation_clock::looping(").count();
+        // GPUI's loop builders take no argument, unlike `str::repeat`.
+        for pattern in [".repeat()", ".repeat_synced()"] {
+            for (start, _) in text.match_indices(pattern) {
                 let line = text[..start].lines().count();
-                uncapped.push(format!("{}:{line}", file.display()));
+                own.push(format!("{}:{line}", file.display()));
             }
         }
     }
-    // A scanner that finds nothing would pass a tree full of uncapped loops.
-    assert!(animations >= 10, "found only {animations} animations");
+    // A scanner that finds nothing would pass a tree full of GPUI loops.
+    assert!(shared >= 10, "found only {shared} shared-clock loops");
     assert!(
-        uncapped.is_empty(),
-        "uncapped looping animations: {uncapped:#?}"
+        own.is_empty(),
+        "looping animations with timers of their own: {own:#?}"
     );
 }

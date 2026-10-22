@@ -24,31 +24,22 @@ pub(crate) fn bar(name: &'static str, progress: Progress, accent: Hsla, track: H
         .bg(accent);
     let fill = match progress {
         Progress::Fraction(fraction) => fill.w(relative(fraction.clamp(0., 1.))).into_any_element(),
-        Progress::Working(fraction) => fill
-            .w(relative(fraction.clamp(0., 1.)))
-            .with_animation(
-                ElementId::Name(format!("{name}-pulse").into()),
-                Animation::new(Duration::from_millis(1600))
-                    .repeat()
-                    .with_max_fps(30.),
-                |fill, delta| fill.opacity(0.7 + 0.3 * (delta * std::f32::consts::TAU).cos()),
-            )
-            .into_any_element(),
-        Progress::Busy => fill
-            .absolute()
-            .w(relative(0.3))
-            .with_animation(
-                ElementId::Name(format!("{name}-busy").into()),
-                Animation::new(Duration::from_secs(2))
-                    .repeat()
-                    .with_max_fps(30.),
-                |fill, delta| {
-                    fill.left(relative(
-                        0.35 * (1. - (delta * std::f32::consts::TAU).cos()),
-                    ))
-                },
-            )
-            .into_any_element(),
+        Progress::Working(fraction) => crate::animation_clock::looping(
+            fill.w(relative(fraction.clamp(0., 1.))),
+            Duration::from_millis(1600),
+            |fill, delta| fill.opacity(0.7 + 0.3 * (delta * std::f32::consts::TAU).cos()),
+        )
+        .into_any_element(),
+        Progress::Busy => crate::animation_clock::looping(
+            fill.absolute().w(relative(0.3)),
+            Duration::from_secs(2),
+            |fill, delta| {
+                fill.left(relative(
+                    0.35 * (1. - (delta * std::f32::consts::TAU).cos()),
+                ))
+            },
+        )
+        .into_any_element(),
     };
     div()
         .debug_selector(move || name.into())

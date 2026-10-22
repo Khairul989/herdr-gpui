@@ -115,19 +115,16 @@ impl HerdrWindow {
                         .cursor_pointer()
                         .hover(|s| s.bg(rgb(theme.active)))
                         .child(if busy {
-                            refresh
-                                .with_animation(
-                                    "usage-refreshing",
-                                    Animation::new(Duration::from_secs(1))
-                                        .repeat()
-                                        .with_max_fps(30.),
-                                    |icon, delta| {
-                                        icon.with_transformation(Transformation::rotate(
-                                            percentage(delta),
-                                        ))
-                                    },
-                                )
-                                .into_any_element()
+                            crate::animation_clock::looping(
+                                refresh,
+                                Duration::from_secs(1),
+                                |icon, delta| {
+                                    icon.with_transformation(Transformation::rotate(percentage(
+                                        delta,
+                                    )))
+                                },
+                            )
+                            .into_any_element()
                         } else {
                             refresh.into_any_element()
                         })

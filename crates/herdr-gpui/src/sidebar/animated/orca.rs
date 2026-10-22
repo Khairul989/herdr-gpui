@@ -6,7 +6,6 @@
 use super::{STATUS_DOT_UNKNOWN, disc, dot_size};
 use gpui::{prelude::*, *};
 use herdr_client::protocol::AgentStatus;
-use std::time::Duration;
 
 /// Orca's spinner turns in twelve 30° steps a second.
 pub(super) const STEPS: f32 = 12.;
@@ -23,17 +22,12 @@ pub(super) fn mark(status: AgentStatus, size: f32, color: u32) -> AnyElement {
             .text_color(rgb(color))
     };
     match status {
-        AgentStatus::Working => icon("status-orca-ring", "icons/status-orca-working.svg")
-            .with_animation(
-                "status-orca-ring",
-                Animation::new(Duration::from_secs(1))
-                    .repeat_synced()
-                    .with_max_fps(STEPS),
-                |ring, delta| {
-                    ring.with_transformation(Transformation::rotate(percentage(step(delta))))
-                },
-            )
-            .into_any_element(),
+        AgentStatus::Working => crate::animation_clock::looping(
+            icon("status-orca-ring", "icons/status-orca-working.svg"),
+            crate::animation_clock::steps(STEPS as usize),
+            |ring, delta| ring.with_transformation(Transformation::rotate(percentage(step(delta)))),
+        )
+        .into_any_element(),
         AgentStatus::Blocked => {
             icon("status-orca-question", "icons/status-orca-blocked.svg").into_any_element()
         }
