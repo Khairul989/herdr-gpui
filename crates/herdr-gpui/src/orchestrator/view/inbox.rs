@@ -440,16 +440,11 @@ impl OrchestratorView {
             .flex()
             .items_center()
             .justify_center()
-            .child(
-                look.icon("icons/refresh.svg", 14., look.theme.muted)
-                    .with_animation(
-                        "orchestrator-refresh-spin",
-                        Animation::new(SPIN).repeat().with_max_fps(30.),
-                        |icon, delta| {
-                            icon.with_transformation(Transformation::rotate(percentage(delta)))
-                        },
-                    ),
-            )
+            .child(crate::animation_clock::looping(
+                look.icon("icons/refresh.svg", 14., look.theme.muted),
+                SPIN,
+                |icon, delta| icon.with_transformation(Transformation::rotate(percentage(delta))),
+            ))
             .into_any_element()
     }
 

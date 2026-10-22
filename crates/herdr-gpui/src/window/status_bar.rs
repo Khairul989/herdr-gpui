@@ -262,19 +262,16 @@ impl HerdrWindow {
 
     fn connection_dot(&self) -> AnyElement {
         if matches!(self.live.status, ConnectionStatus::StartingDaemon) {
-            div()
-                .size(px(8.))
-                .flex_none()
-                .rounded_full()
-                .bg(rgb(self.theme.ink(self.theme.palette[3])))
-                .with_animation(
-                    "daemon-starting-loader",
-                    Animation::new(Duration::from_secs(1))
-                        .repeat()
-                        .with_max_fps(30.),
-                    |dot, delta| dot.opacity(0.3 + 0.7 * (delta * std::f32::consts::PI).sin()),
-                )
-                .into_any_element()
+            crate::animation_clock::looping(
+                div()
+                    .size(px(8.))
+                    .flex_none()
+                    .rounded_full()
+                    .bg(rgb(self.theme.ink(self.theme.palette[3]))),
+                Duration::from_secs(1),
+                |dot, delta| dot.opacity(0.3 + 0.7 * (delta * std::f32::consts::PI).sin()),
+            )
+            .into_any_element()
         } else {
             div()
                 .size(px(6.))

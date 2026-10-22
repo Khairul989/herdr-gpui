@@ -4,7 +4,6 @@
 
 use gpui::{prelude::*, *};
 use herdr_client::protocol::AgentStatus;
-use std::time::Duration;
 
 /// Superset's `WaveSpinner`: 24 frames of 50ms. Each diagonal fades in over
 /// 3 frames, 2 frames behind the one before it, and empties from frame 11.
@@ -19,7 +18,6 @@ pub(super) const WAVE_FULL_FRAME: f32 = 11.;
 /// from the top left.
 pub(super) const FRAME: [usize; 8] = [0, 1, 2, 5, 8, 7, 6, 3];
 const CENTER: usize = 4;
-const CHASE_STEP_MS: u64 = 110;
 /// The gap's cell stays faintly lit, so the frame never reads as broken.
 const GAP_OPACITY: f32 = 0.15;
 const DIM_OPACITY: f32 = 0.4;
@@ -27,32 +25,26 @@ const DIM_OPACITY: f32 = 0.4;
 pub(super) fn mark(status: AgentStatus, size: f32, color: u32) -> AnyElement {
     let cell = ((size - 2.) / 3.).floor().max(2.);
     match status {
-        AgentStatus::Working => grid("status-wave", cell)
-            .with_animation(
-                "status-wave",
-                Animation::new(Duration::from_millis(50 * WAVE_FRAMES as u64))
-                    .repeat_synced()
-                    .with_max_fps(20.),
-                move |grid, delta| {
-                    let frame = ((delta * WAVE_FRAMES).floor() + WAVE_FULL_FRAME) % WAVE_FRAMES;
-                    grid.children(cells(cell, color, |index| {
-                        wave_opacity(frame, (index / 3 + index % 3) as f32)
-                    }))
-                },
-            )
-            .into_any_element(),
-        AgentStatus::Blocked => grid("status-chase", cell)
-            .with_animation(
-                "status-chase",
-                Animation::new(Duration::from_millis(CHASE_STEP_MS * FRAME.len() as u64))
-                    .repeat_synced()
-                    .with_max_fps(1000. / CHASE_STEP_MS as f32),
-                move |grid, delta| {
-                    let gap = FRAME[super::frame_index(FRAME.len(), delta)];
-                    grid.children(cells(cell, color, |index| chase_opacity(gap, index)))
-                },
-            )
-            .into_any_element(),
+        AgentStatus::Working => crate::animation_clock::looping(
+            grid("status-wave", cell),
+            crate::animation_clock::steps(WAVE_FRAMES as usize),
+            move |grid, delta| {
+                let frame = ((delta * WAVE_FRAMES).floor() + WAVE_FULL_FRAME) % WAVE_FRAMES;
+                grid.children(cells(cell, color, |index| {
+                    wave_opacity(frame, (index / 3 + index % 3) as f32)
+                }))
+            },
+        )
+        .into_any_element(),
+        AgentStatus::Blocked => crate::animation_clock::looping(
+            grid("status-chase", cell),
+            crate::animation_clock::steps(FRAME.len()),
+            move |grid, delta| {
+                let gap = FRAME[super::frame_index(FRAME.len(), delta)];
+                grid.children(cells(cell, color, |index| chase_opacity(gap, index)))
+            },
+        )
+        .into_any_element(),
         AgentStatus::Done => grid("status-grid-done", cell)
             .children(cells(cell, color, |_| 1.))
             .into_any_element(),

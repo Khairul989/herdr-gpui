@@ -487,24 +487,17 @@ impl HerdrWindow {
                         .items_center()
                         .gap(px(8.))
                         .text_color(rgb(theme.muted))
-                        .child(
+                        .child(crate::animation_clock::looping(
                             svg()
                                 .path("icons/refresh.svg")
                                 .size(px(12.))
                                 .flex_none()
-                                .text_color(rgb(theme.muted))
-                                .with_animation(
-                                    "git-menu-pr-loading",
-                                    Animation::new(std::time::Duration::from_secs(1))
-                                        .repeat()
-                                        .with_max_fps(30.),
-                                    |icon, delta| {
-                                        icon.with_transformation(Transformation::rotate(
-                                            percentage(delta),
-                                        ))
-                                    },
-                                ),
-                        )
+                                .text_color(rgb(theme.muted)),
+                            std::time::Duration::from_secs(1),
+                            |icon, delta| {
+                                icon.with_transformation(Transformation::rotate(percentage(delta)))
+                            },
+                        ))
                         .child("Loading pull request..."),
                 );
             }

@@ -430,21 +430,17 @@ fn working_orbit(size: f32, color: u32) -> impl IntoElement {
             .size(px(size))
             .flex_none()
             .text_color(rgb(color)),
-        "status-orbit",
         900,
     )
 }
 
-/// Turns `mark` once every `period_ms`. Every spinner of one kind shares an
-/// id and the app's synced clock, so all working agents turn in step, and
-/// repaints are capped because a sidebar can show many at once. GPUI holds
-/// it still under reduced motion.
-fn spin(mark: Svg, id: &'static str, period_ms: u64) -> impl IntoElement {
-    mark.with_animation(
-        id,
-        Animation::new(std::time::Duration::from_millis(period_ms))
-            .repeat_synced()
-            .with_max_fps(30.),
+/// Turns `mark` once every `period_ms` on the app's animation clock, so all
+/// working agents turn in step and a sidebar of them redraws once a tick.
+/// Reduced motion holds it still.
+fn spin(mark: Svg, period_ms: u64) -> impl IntoElement {
+    crate::animation_clock::looping(
+        mark,
+        std::time::Duration::from_millis(period_ms),
         |mark, delta| mark.with_transformation(Transformation::rotate(percentage(delta))),
     )
 }
@@ -506,12 +502,7 @@ fn drawn_mark(icons: StatusIcons, status: AgentStatus, size: f32, color: u32) ->
     if status != AgentStatus::Working {
         return mark.into_any_element();
     }
-    spin(
-        mark.debug_selector(|| "status-spin".into()),
-        "status-spin",
-        1400,
-    )
-    .into_any_element()
+    spin(mark.debug_selector(|| "status-spin".into()), 1400).into_any_element()
 }
 
 /// The word the daemon's `state_text` token shows for a status when its
