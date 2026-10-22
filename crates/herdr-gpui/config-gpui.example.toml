@@ -353,6 +353,10 @@ size = 12
 # the uncommitted-work probe's slow schedule: one checkout at a time, each at
 # most every 30 seconds while the window is active.
 # change_counts = "pr"
+# A device row's CPU and memory line: "detailed" draws a CPU graph and a
+# memory meter beside the numbers; "compact" shows only the numbers, which
+# fit a narrow sidebar. Whether it shows at all is show_system_load.
+# system_load = "detailed"
 
 # The activity bar: an icon column at the window's left edge. Workspaces is
 # the sidebar beside the terminals; Orchestrator, Pull requests, and Issues

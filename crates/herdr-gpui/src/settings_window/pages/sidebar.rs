@@ -4,7 +4,7 @@ use super::{SettingsWindow, on_value, ui};
 use crate::{
     config::{
         AgentsPlacement, ChangeCounts, Config, DeviceFooter, LayoutMode, SelectMode,
-        SidebarOverrides, preferences::Preference,
+        SidebarOverrides, preferences::Preference, status_bar::Detail,
     },
     settings_window::{
         inputs::{DropdownField, NumberField},
@@ -240,6 +240,25 @@ impl SettingsWindow {
                         on_value(cx, |this, counts, _, cx| {
                             let mut intent = SidebarIntent::of(&this.config);
                             intent.style.change_counts = counts;
+                            this.commit_sidebar(intent, cx);
+                        }),
+                    )),
+            )
+            .child(
+                ui::row(theme, "sidebar-system-load", "Device CPU and memory")
+                    .description(
+                        "Under each device: a CPU graph and memory meter beside the numbers, or \
+                         the numbers alone, which fit a narrow sidebar.",
+                    )
+                    .control(ui::segmented(
+                        theme,
+                        "sidebar-system-load-control",
+                        &[(Detail::Detailed, "Graphs"), (Detail::Compact, "Numbers")],
+                        Some(self.config.sidebar_style.system_load),
+                        ready,
+                        on_value(cx, |this, detail, _, cx| {
+                            let mut intent = SidebarIntent::of(&this.config);
+                            intent.style.system_load = detail;
                             this.commit_sidebar(intent, cx);
                         }),
                     )),

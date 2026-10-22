@@ -42,6 +42,7 @@ mod sidebar_scope;
 mod sidebar_search;
 mod sidebar_settings;
 mod sidebar_style;
+mod sidebar_system_load;
 mod sound_volume;
 mod status_bar;
 mod status_bar_awake_scope;

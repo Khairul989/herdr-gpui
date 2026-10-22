@@ -56,6 +56,8 @@ pub(crate) enum Preference {
     SidebarDeviceFooter(DeviceFooter),
     /// `[sidebar] change_counts`: whose line counts a worktree row shows.
     SidebarChangeCounts(ChangeCounts),
+    /// `[sidebar] system_load`: a device row's load with or without graphs.
+    SidebarSystemLoad(status_bar::Detail),
     /// `None` removes the host's colour.
     HostColor {
         host: String,
@@ -218,6 +220,11 @@ impl Config {
                     Some("sidebar"),
                     "change_counts",
                     Some(toml_edit::Value::from(counts.as_str())),
+                ),
+                Preference::SidebarSystemLoad(detail) => (
+                    Some("sidebar"),
+                    "system_load",
+                    Some(toml_edit::Value::from(detail.name())),
                 ),
                 Preference::HostColor { host, color } => {
                     if let Some(color) = color.filter(|color| *color > 0xFF_FFFF) {
