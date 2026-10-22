@@ -155,6 +155,7 @@ mod toggles;
 mod update_panel;
 mod updater;
 mod usage;
+mod wake;
 mod window;
 mod window_state;
 mod words;

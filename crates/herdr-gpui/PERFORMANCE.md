@@ -205,9 +205,9 @@ scripts/bench-power.sh 60 "$!"            # average CPU, plus WindowServer
 sudo powermetrics --samplers cpu_power,gpu_power -i 1000 -n 60   # package and GPU power
 ```
 
-`frame_callbacks` counts display-link wakeups while the window is visible,
-`ticks` the window's polling, and `root_renders`, `sidebar_renders` and
-`layer_renders` the views rebuilt. `terminal_paints` counts grid paints, not
+`ticks` counts the window's polling, both the 16 ms timer and connection
+news, and `root_renders`, `sidebar_renders` and `layer_renders` the views
+rebuilt. `terminal_paints` counts grid paints, not
 frames. Every counter is a process total, so several windows add together.
-Keep the window visible and unobscured: macOS stops the display link for an
-occluded window, which reads as zero `frame_callbacks`.
+Keep the window visible and unobscured: macOS stops drawing an occluded
+window, which reads as zero renders.

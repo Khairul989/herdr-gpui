@@ -27,7 +27,6 @@ macro_rules! counters {
 }
 
 counters! {
-    FrameCallback => "frame_callbacks",
     LayerRender => "layer_renders",
     Paint => "terminal_paints",
     RootRender => "root_renders",

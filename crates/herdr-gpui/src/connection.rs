@@ -244,8 +244,10 @@ impl ConnectionBridge {
                                 None => state.dirty = true,
                             }
                         }
+                        crate::wake::notify();
                     }
                     drained.store(true, Ordering::Release);
+                    crate::wake::notify();
                     tracing::debug!("Connection bridge event reader drained");
                 }))
                 .map_err(crate::Error::from)
