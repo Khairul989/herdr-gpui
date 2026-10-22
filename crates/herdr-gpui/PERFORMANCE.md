@@ -190,3 +190,24 @@ Cost: only the moving pane's region repaints, every display frame while the
 gesture lasts and for 48 ms after it. Other panes replay their cached scene, and
 a resting pane keeps its cached paint. The extra main-thread time is mostly Metal
 drawing and presenting those frames, not terminal painting.
+
+## Idle Redraws And Power
+
+Measures a normal release build against a real daemon, for comparing Herdr UI
+with a terminal running the herdr TUI. Start the app with `HERDR_FRAME_STATS`
+naming a file, and it appends one line a second: Unix milliseconds, then how
+often each counter in `src/frame_stats.rs` fired since the previous line.
+Unset, counting costs one relaxed load.
+
+```sh
+HERDR_FRAME_STATS=/tmp/frames.log target/release/herdr-gpui &
+scripts/bench-power.sh 60 "$!"            # average CPU, plus WindowServer
+sudo powermetrics --samplers cpu_power,gpu_power -i 1000 -n 60   # package and GPU power
+```
+
+`frame_callbacks` counts display-link wakeups while the window is visible,
+`ticks` the window's polling, and `root_renders`, `sidebar_renders` and
+`layer_renders` the views rebuilt. `terminal_paints` counts grid paints, not
+frames. Every counter is a process total, so several windows add together.
+Keep the window visible and unobscured: macOS stops the display link for an
+occluded window, which reads as zero `frame_callbacks`.

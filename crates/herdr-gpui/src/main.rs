@@ -71,6 +71,7 @@ mod fan_out;
 mod find;
 mod font_picker;
 mod fonts;
+mod frame_stats;
 mod git;
 mod github;
 mod group_menu;

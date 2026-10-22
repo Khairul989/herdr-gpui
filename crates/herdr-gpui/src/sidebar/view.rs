@@ -46,6 +46,7 @@ impl SidebarView {
 
 impl Render for SidebarView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        crate::frame_stats::count(crate::frame_stats::Counter::SidebarRender);
         #[cfg(test)]
         {
             self.renders += 1;

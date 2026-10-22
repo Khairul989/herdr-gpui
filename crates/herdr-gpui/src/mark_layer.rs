@@ -143,6 +143,7 @@ impl MarkLayer {
 
 impl Render for MarkLayer {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        crate::frame_stats::count(crate::frame_stats::Counter::LayerRender);
         #[cfg(test)]
         {
             self.renders += 1;
