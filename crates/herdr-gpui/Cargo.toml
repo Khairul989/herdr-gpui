@@ -19,7 +19,9 @@ base64                         = { optional = true, workspace = true }
 chrono.workspace               = true
 config_loader.workspace        = true
 ed25519-dalek.workspace        = true
+event-listener.workspace       = true
 flate2.workspace               = true
+futures-lite.workspace         = true
 getrandom.workspace            = true
 gpui.workspace                 = true
 # Unlike gpui 0.2.2, the platform crate enables nothing by default: without
@@ -161,7 +163,6 @@ windows-sys = { features = [
 
 [target.'cfg(target_os = "linux")'.dependencies]
 fontdb.workspace       = true
-futures-lite.workspace = true
 nix.workspace          = true
 oo7.workspace          = true
 

@@ -441,25 +441,13 @@ impl HerdrWindow {
         self.sync_group_host_theme(&theme);
     }
 
-    /// Runs every display frame while the window draws, so a new surface is
-    /// shown on the refresh it arrives for instead of on the next timer tick.
-    fn poll_on_frame(this: WeakEntity<Self>, window: &mut Window) {
-        window.on_next_frame(move |window, cx| {
-            crate::frame_stats::count(crate::frame_stats::Counter::FrameCallback);
-            let alive = this.update(cx, |view, cx| {
-                if view
-                    .endpoints
-                    .iter()
-                    .any(|endpoint| endpoint.connection.has_update())
-                    || view.group_terminals_updated()
-                {
-                    view.tick(window, cx);
-                }
-            });
-            if alive.is_ok() {
-                Self::poll_on_frame(this, window);
-            }
-        });
+    /// Whether a connection, this window's or a parked group terminal's, has
+    /// state the window has not taken yet.
+    pub(crate) fn has_connection_update(&self) -> bool {
+        self.endpoints
+            .iter()
+            .any(|endpoint| endpoint.connection.has_update())
+            || self.group_terminals_updated()
     }
 
     /// Stored chrome yields to anything changed before it arrived. A stored

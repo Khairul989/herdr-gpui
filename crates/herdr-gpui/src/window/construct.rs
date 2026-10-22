@@ -16,6 +16,13 @@ use herdr_client::{ConnectOptions, ConnectTarget};
 use std::sync::Arc;
 use std::time::Duration;
 
+/// The shortest wait between two rounds of connection news: about one
+/// refresh of a 120 Hz display, so streaming output is taken once a frame.
+const UPDATE_GAP: Duration = Duration::from_millis(8);
+/// The same for a window that is not focused or not shown: about 30 a
+/// second, the cap GPUI puts on an inactive window's frames.
+const BACKGROUND_UPDATE_GAP: Duration = Duration::from_millis(33);
+
 impl HerdrWindow {
     pub(crate) fn new(
         target: ConnectTarget,
@@ -59,15 +66,42 @@ impl HerdrWindow {
         let mark_layer = cx.new(|cx| crate::mark_layer::MarkLayer::new(window, hosts, cx));
         let timer = cx.background_executor().clone();
         let poll = cx.spawn_in(window, async move |this, cx| {
-            loop {
-                timer.timer(Duration::from_millis(16)).await;
-                if this
-                    .update_in(cx, |this, window, cx| this.tick(window, cx))
-                    .is_err()
-                {
-                    break;
+            // Background work reports through the polled tick.
+            let ticks = {
+                let (this, mut cx, timer) = (this.clone(), cx.clone(), timer.clone());
+                async move {
+                    loop {
+                        timer.timer(Duration::from_millis(16)).await;
+                        if this
+                            .update_in(&mut cx, |this, window, cx| this.tick(window, cx))
+                            .is_err()
+                        {
+                            break;
+                        }
+                    }
                 }
-            }
+            };
+            // A connection's news is taken as it arrives, so a new surface
+            // is shown on the next refresh without asking for every frame.
+            let gap = std::cell::Cell::new(UPDATE_GAP);
+            let updates = crate::wake::each_update(
+                || {
+                    this.update_in(cx, |this, window, cx| {
+                        let shown = matches!(window.visibility(), WindowVisibility::Visible);
+                        gap.set(if shown && window.is_window_active() {
+                            UPDATE_GAP
+                        } else {
+                            BACKGROUND_UPDATE_GAP
+                        });
+                        if this.has_connection_update() {
+                            this.tick(window, cx);
+                        }
+                    })
+                    .is_ok()
+                },
+                || timer.timer(gap.get()),
+            );
+            futures_lite::future::zip(ticks, updates).await;
         });
         let appearance = cx
             .try_global::<crate::app::InitialAppearance>()
@@ -319,7 +353,6 @@ impl HerdrWindow {
             }
             return this;
         }
-        Self::poll_on_frame(cx.entity().downgrade(), window);
         this.sidebar_preferences = this.endpoints[0]
             .connection
             .target

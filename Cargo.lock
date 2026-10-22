@@ -4294,6 +4294,7 @@ dependencies = [
  "core-graphics 0.25.0",
  "dispatch2",
  "ed25519-dalek",
+ "event-listener",
  "flate2",
  "fontdb 0.24.0",
  "foreign-types",
