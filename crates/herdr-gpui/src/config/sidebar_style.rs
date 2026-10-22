@@ -3,7 +3,7 @@
 //! the device footer is drawn, whose change counts a row shows, and whether
 //! the activity bar leads it.
 
-use super::fonts::FontSettings;
+use super::{fonts::FontSettings, status_bar::Detail};
 use crate::{Error, Result};
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -135,6 +135,9 @@ pub struct SidebarStyle {
     pub hosts: BTreeMap<String, u32>,
     pub overrides: SidebarOverrides,
     pub select: SelectMode,
+    /// `system_load`: a device row's CPU graph and memory meter beside the
+    /// numbers, or the numbers alone, which fit a narrow sidebar.
+    pub system_load: Detail,
 }
 
 impl Default for SidebarStyle {
@@ -146,6 +149,7 @@ impl Default for SidebarStyle {
             hosts: BTreeMap::new(),
             overrides: SidebarOverrides::default(),
             select: SelectMode::default(),
+            system_load: Detail::default(),
         }
     }
 }
@@ -176,6 +180,7 @@ pub(super) struct SidebarSettings {
     pub(super) change_counts: ChangeCounts,
     pub(super) hosts: BTreeMap<String, String>,
     pub(super) activity_bar: Option<bool>,
+    pub(super) system_load: Detail,
 }
 
 impl SidebarSettings {
@@ -201,6 +206,7 @@ impl SidebarSettings {
             hosts,
             overrides: self.overrides,
             select: self.select,
+            system_load: self.system_load,
         })
     }
 }
@@ -237,6 +243,7 @@ impl<'de> Deserialize<'de> for SidebarSettings {
                         "device_footer" => settings.device_footer = map.next_value()?,
                         "change_counts" => settings.change_counts = map.next_value()?,
                         "activity_bar" => settings.activity_bar = Some(map.next_value()?),
+                        "system_load" => settings.system_load = map.next_value()?,
                         "hosts" => settings.hosts = map.next_value()?,
                         _ => {
                             map.next_value::<serde::de::IgnoredAny>()?;

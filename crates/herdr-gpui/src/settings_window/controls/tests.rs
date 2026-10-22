@@ -14,6 +14,7 @@ mod indicators;
 mod repository_icons;
 mod session_restore;
 mod sidebar_search;
+mod sidebar_system_load;
 mod sound_volume;
 mod terminal_padding;
 mod update_channel;

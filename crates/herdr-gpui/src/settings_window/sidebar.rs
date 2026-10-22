@@ -19,6 +19,7 @@ pub(super) enum SidebarKey {
     DeviceFooter,
     ActivityBar,
     ChangeCounts,
+    SystemLoad,
     Host(String),
 }
 
@@ -32,6 +33,7 @@ impl SidebarKey {
         Self::DeviceFooter,
         Self::ActivityBar,
         Self::ChangeCounts,
+        Self::SystemLoad,
     ];
 
     /// Copies this key's value from `from` into `to`.
@@ -46,6 +48,7 @@ impl SidebarKey {
             Self::DeviceFooter => to.device_footer = from.device_footer,
             Self::ActivityBar => to.activity_bar = from.activity_bar,
             Self::ChangeCounts => to.change_counts = from.change_counts,
+            Self::SystemLoad => to.system_load = from.system_load,
             Self::Host(host) => match from.hosts.get(host) {
                 Some(color) => {
                     to.hosts.insert(host.clone(), *color);
@@ -69,6 +72,7 @@ impl SidebarKey {
             Self::DeviceFooter => Preference::SidebarDeviceFooter(style.device_footer),
             Self::ActivityBar => Preference::SidebarActivityBar(style.activity_bar),
             Self::ChangeCounts => Preference::SidebarChangeCounts(style.change_counts),
+            Self::SystemLoad => Preference::SidebarSystemLoad(style.system_load),
             Self::Host(host) => Preference::HostColor {
                 host: host.clone(),
                 color: style.hosts.get(host).copied(),
@@ -87,6 +91,7 @@ impl SidebarKey {
             Self::DeviceFooter => before.device_footer != after.device_footer,
             Self::ActivityBar => before.activity_bar != after.activity_bar,
             Self::ChangeCounts => before.change_counts != after.change_counts,
+            Self::SystemLoad => before.system_load != after.system_load,
             Self::Host(host) => before.hosts.get(host) != after.hosts.get(host),
         }
     }

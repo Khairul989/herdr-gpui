@@ -61,7 +61,7 @@ impl Button {
 }
 
 impl Detail {
-    fn name(self) -> &'static str {
+    pub(crate) fn name(self) -> &'static str {
         match self {
             Self::Detailed => "detailed",
             Self::Compact => "compact",
