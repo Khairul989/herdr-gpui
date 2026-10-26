@@ -1195,11 +1195,14 @@ the shared pieces in `layouts/parts.rs`: a `Line` gives fixed pieces (icons,
 status, fold) their size, lets labels shrink to a share of the row, and hands
 the rest to the name, so the whole `minimal` layout is under a hundred lines.
 
-Agent names have small theme-tinted icons for every agent Herdr detects, selected
+Agent names have small icons for every agent Herdr detects, selected
 from the daemon's agent identity: brand marks for Pi, Claude Code, Codex (OpenAI),
 Gemini, Cursor, Devin, Antigravity, Cline, Mastra Code, OpenCode, GitHub Copilot,
 Kimi, Kiro, Amp, Grok, Hermes Agent, Kilo Code, Qoder CLI, Qwen Code, and Muse
 Code (Meta's mark), and lettermarks for oh-my-pi, Droid, Letta, and Maki.
+In the sidebar's agent rows and the collapsed rail, Claude Code, Codex, Gemini,
+Antigravity, GitHub Copilot, Devin, Kiro, and Amp marks use the brand colours
+Herdr's own sidebar uses; every other mark is tinted by the theme.
 Unknown or missing identities use a generic terminal icon, regardless of custom
 names.
 Icons sit immediately before the name, including orphan agents whose name is

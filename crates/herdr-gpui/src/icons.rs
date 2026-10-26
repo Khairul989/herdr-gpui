@@ -4,9 +4,12 @@ use std::borrow::Cow;
 pub(super) struct Icons;
 
 /// Declares each agent mark once: its variant, Herdr's canonical
-/// `agent_label` identity, and the embedded asset named after that identity.
+/// `agent_label` identity, the embedded asset named after that identity, and
+/// after `@` the brand colour Herdr's sidebar uses for it, if any.
 macro_rules! agent_icons {
-    ($($variant:ident => $label:literal,)+) => {
+    (@brand) => { None };
+    (@brand $brand:literal) => { Some($brand) };
+    ($($variant:ident => $label:literal $(@ $brand:literal)?,)+) => {
         /// Canonical daemon identities, independent of editable display names.
         #[derive(Clone, Copy, Debug, PartialEq, Eq)]
         pub(crate) enum AgentIcon {
@@ -22,6 +25,21 @@ macro_rules! agent_icons {
                     $(Some($label) => Self::$variant,)+
                     _ => Self::Generic,
                 }
+            }
+
+            /// The brand colour Herdr's own sidebar tints this mark with
+            /// (`src/ui/sidebar/agent_logo.rs` `agent_brand_color`), or None
+            /// for agents without a verified brand colour.
+            pub(crate) fn brand_color(self) -> Option<u32> {
+                match self {
+                    $(Self::$variant => agent_icons!(@brand $($brand)?),)+
+                    Self::Generic => None,
+                }
+            }
+
+            /// The colour this mark paints in: its brand colour, else `theme`.
+            pub(crate) fn tint(self, theme: u32) -> u32 {
+                self.brand_color().unwrap_or(theme)
             }
 
             pub(crate) fn path(self) -> &'static str {
@@ -46,21 +64,21 @@ macro_rules! agent_icons {
 // Keyed on Herdr's `src/detect/mod.rs` `agent_label`, in its declaration order.
 agent_icons! {
     Pi => "pi",
-    Claude => "claude",
-    Codex => "codex",
-    Gemini => "gemini",
+    Claude => "claude" @ 0xD97757,
+    Codex => "codex" @ 0x10A37F,
+    Gemini => "gemini" @ 0x4285F4,
     Cursor => "cursor",
-    Devin => "devin",
-    Antigravity => "agy",
+    Devin => "devin" @ 0x2E6CF6,
+    Antigravity => "agy" @ 0x4285F4,
     Cline => "cline",
     Omp => "omp",
     Mastracode => "mastracode",
     OpenCode => "opencode",
-    Copilot => "copilot",
+    Copilot => "copilot" @ 0x8957E5,
     Kimi => "kimi",
-    Kiro => "kiro",
+    Kiro => "kiro" @ 0x790EF7,
     Droid => "droid",
-    Amp => "amp",
+    Amp => "amp" @ 0xFF5543,
     Grok => "grok",
     Hermes => "hermes",
     Kilo => "kilo",
@@ -302,6 +320,8 @@ mod tests {
     #![allow(clippy::unwrap_used)]
     use super::*;
     use gpui::{DevicePixels, Image, ImageFormat, TestAppContext};
+
+    mod brand_colors;
 
     #[gpui::test]
     fn embedded_icons_render_nonempty_masks(cx: &mut TestAppContext) {
