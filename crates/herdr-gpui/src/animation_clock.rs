@@ -124,7 +124,8 @@ impl<E: IntoElement + 'static> Element for Looping<E> {
                     0.
                 } else {
                     redraw_at_next_tick(window.current_view(), cx);
-                    phase(self.period, elapsed(cx))
+                    // QA > Slow Animations stretches the loop like GPUI's own.
+                    phase(crate::motion::duration(self.period), elapsed(cx))
                 };
                 animator(element, delta).into_any_element()
             }

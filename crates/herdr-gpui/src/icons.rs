@@ -9,7 +9,7 @@ pub(super) struct Icons;
 macro_rules! agent_icons {
     (@brand) => { None };
     (@brand $brand:literal) => { Some($brand) };
-    ($($variant:ident => $label:literal $(@ $brand:literal)?,)+) => {
+    ($($variant:ident => $label:literal, $extension:literal $(@ $brand:literal)?,)+) => {
         /// Canonical daemon identities, independent of editable display names.
         #[derive(Clone, Copy, Debug, PartialEq, Eq)]
         pub(crate) enum AgentIcon {
@@ -44,7 +44,7 @@ macro_rules! agent_icons {
 
             pub(crate) fn path(self) -> &'static str {
                 match self {
-                    $(Self::$variant => concat!("icons/agent-", $label, ".svg"),)+
+                    $(Self::$variant => concat!("icons/agent-", $label, ".", $extension),)+
                     Self::Generic => "icons/agent-generic.svg",
                 }
             }
@@ -52,10 +52,14 @@ macro_rules! agent_icons {
             fn bytes(self) -> &'static [u8] {
                 match self {
                     $(Self::$variant => include_bytes!(concat!(
-                        "../../../assets/icons/agent-", $label, ".svg"
+                        "../../../assets/icons/agent-", $label, ".", $extension
                     )),)+
                     Self::Generic => include_bytes!("../../../assets/icons/agent-generic.svg"),
                 }
+            }
+
+            pub(crate) fn element(self, size: f32, color: u32) -> gpui::AnyElement {
+                icon(self.path(), size, color)
             }
         }
     };
@@ -63,30 +67,51 @@ macro_rules! agent_icons {
 
 // Keyed on Herdr's `src/detect/mod.rs` `agent_label`, in its declaration order.
 agent_icons! {
-    Pi => "pi",
-    Claude => "claude" @ 0xD97757,
-    Codex => "codex" @ 0x10A37F,
-    Gemini => "gemini" @ 0x4285F4,
-    Cursor => "cursor",
-    Devin => "devin" @ 0x2E6CF6,
-    Antigravity => "agy" @ 0x4285F4,
-    Cline => "cline",
-    Omp => "omp",
-    Mastracode => "mastracode",
-    OpenCode => "opencode",
-    Copilot => "copilot" @ 0x8957E5,
-    Kimi => "kimi",
-    Kiro => "kiro" @ 0x790EF7,
-    Droid => "droid",
-    Amp => "amp" @ 0xFF5543,
-    Grok => "grok",
-    Hermes => "hermes",
-    Kilo => "kilo",
-    Qodercli => "qodercli",
-    Qwen => "qwen",
-    Letta => "letta",
-    Maki => "maki",
-    Muse => "muse",
+    Pi => "pi", "svg",
+    Omo => "omo", "png",
+    Claude => "claude", "svg" @ 0xD97757,
+    Codex => "codex", "svg" @ 0x10A37F,
+    Gemini => "gemini", "svg" @ 0x4285F4,
+    Cursor => "cursor", "svg",
+    Devin => "devin", "svg" @ 0x2E6CF6,
+    Antigravity => "agy", "svg" @ 0x4285F4,
+    Cline => "cline", "svg",
+    Omp => "omp", "svg",
+    Mastracode => "mastracode", "svg",
+    OpenCode => "opencode", "svg",
+    Copilot => "copilot", "svg" @ 0x8957E5,
+    Kimi => "kimi", "svg",
+    Kiro => "kiro", "svg" @ 0x790EF7,
+    Droid => "droid", "svg",
+    Amp => "amp", "svg" @ 0xFF5543,
+    Grok => "grok", "svg",
+    Hermes => "hermes", "svg",
+    Kilo => "kilo", "svg",
+    Qodercli => "qodercli", "svg",
+    Qwen => "qwen", "svg",
+    Letta => "letta", "svg",
+    Maki => "maki", "svg",
+    Muse => "muse", "svg",
+}
+
+/// Raster marks retain their source colors; SVG glyphs use the caller's ink.
+pub(crate) fn icon(path: impl Into<SharedString>, size: f32, color: u32) -> gpui::AnyElement {
+    use gpui::{ObjectFit, img, prelude::*, px, rgb, svg};
+    let path = path.into();
+    if path.ends_with(".png") {
+        img(path)
+            .size(px(size))
+            .flex_none()
+            .object_fit(ObjectFit::Contain)
+            .into_any_element()
+    } else {
+        svg()
+            .path(path)
+            .size(px(size))
+            .flex_none()
+            .text_color(rgb(color))
+            .into_any_element()
+    }
 }
 
 /// Embeds each `status_icons` set, one asset per status, in the order
@@ -219,6 +244,7 @@ embedded_icons! {
     // keep-sorted start
     "arrow-left.svg",
     "arrow-right.svg",
+    "automations.svg",
     "beads.svg",
     "bell.svg",
     "chart.svg",
@@ -229,8 +255,11 @@ embedded_icons! {
     "close.svg",
     "cloud/azure.svg",
     "cloud/coder.svg",
+    "cloud/container.svg",
     "cloud/daytona.svg",
+    "cloud/opensandbox.svg",
     "cloud/railway.svg",
+    "cloud/sprites.svg",
     "code.svg",
     "coffee-full.svg",
     "coffee.svg",
@@ -256,6 +285,7 @@ embedded_icons! {
     "panel-right.svg",
     "pass.svg",
     "pencil.svg",
+    "phone.svg",
     "play.svg",
     "plug.svg",
     "plus.svg",
@@ -321,15 +351,17 @@ mod tests {
     use super::*;
     use gpui::{DevicePixels, Image, ImageFormat, TestAppContext};
 
-    mod brand_colors;
-
     #[gpui::test]
     fn embedded_icons_render_nonempty_masks(cx: &mut TestAppContext) {
         let renderer = cx.update(|cx| cx.svg_renderer());
         for path in Icons.list("icons/").unwrap() {
             let bytes = Icons.load(&path).unwrap().unwrap();
-            // Decode through GPUI's SVG renderer; production uses svg() for tinting.
-            let image = Image::from_bytes(ImageFormat::Svg, bytes.into_owned())
+            let format = if path.ends_with(".png") {
+                ImageFormat::Png
+            } else {
+                ImageFormat::Svg
+            };
+            let image = Image::from_bytes(format, bytes.into_owned())
                 .to_image_data(renderer.clone())
                 .unwrap();
             // Square at its own scale: the tab and menu glyphs are drawn on a
@@ -352,9 +384,10 @@ mod tests {
     }
 
     /// Herdr's `agent_label` values, copied from `src/detect/mod.rs` at
-    /// herdrdev/herdr 65e35a38. Update this list when Herdr adds an agent.
-    const HERDR_AGENT_LABELS: [&str; 24] = [
+    /// herdrdev/herdr 65e35a38, plus the canonical native Omo identity.
+    const HERDR_AGENT_LABELS: &[&str] = &[
         "pi",
+        "omo",
         "claude",
         "codex",
         "gemini",
@@ -387,7 +420,8 @@ mod tests {
         for label in HERDR_AGENT_LABELS {
             let icon = AgentIcon::from_identity(Some(label));
             assert_ne!(icon, AgentIcon::Generic, "{label}");
-            assert_eq!(icon.path(), format!("icons/agent-{label}.svg"));
+            let extension = if icon == AgentIcon::Omo { "png" } else { "svg" };
+            assert_eq!(icon.path(), format!("icons/agent-{label}.{extension}"));
             assert!(Icons.load(icon.path()).unwrap().is_some(), "{label}");
             assert!(listed.iter().any(|path| path == icon.path()), "{label}");
             assert!(!seen.contains(&icon), "{label}");
@@ -412,4 +446,10 @@ mod tests {
         }
         assert!(Icons.load(AgentIcon::Generic.path()).unwrap().is_some());
     }
+
+    mod brand_colors;
 }
+
+#[cfg(test)]
+#[path = "icons/tests/omo.rs"]
+mod omo_tests;
