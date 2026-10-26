@@ -3,6 +3,7 @@
 //! step further in than their workspace, named by the agent alone since the
 //! row above names the workspace.
 
+use super::agent_rows::PlaceShown;
 use crate::{
     HerdrWindow,
     sidebar::{agents::sorted_agents, cell::RowContext},
@@ -79,7 +80,16 @@ impl HerdrWindow {
                 continue;
             };
             let gap = self.agent_row_gap(rows.len());
-            let row = self.agent_cell(index, agent, snapshot, &row_cx, lines, gap, true, cx);
+            let row = self.agent_cell(
+                index,
+                agent,
+                snapshot,
+                &row_cx,
+                lines,
+                gap,
+                PlaceShown::Hidden,
+                cx,
+            );
             if !(selected && agent.focused) {
                 rows.push(row.into_any_element());
                 continue;

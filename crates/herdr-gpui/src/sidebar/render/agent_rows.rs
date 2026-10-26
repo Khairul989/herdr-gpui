@@ -17,6 +17,18 @@ use crate::{
 use gpui::{prelude::*, *};
 use herdr_client::protocol::{ClientShellAgent, ClientShellSnapshot};
 
+/// How much of where an agent runs its row names, given what the rows above
+/// it already say.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum PlaceShown {
+    /// Its workspace and tab: nothing above names them.
+    Full,
+    /// Its tab alone, under a group header that names the workspace and host.
+    Tab,
+    /// Nothing, under the workspace's own row.
+    Hidden,
+}
+
 impl HerdrWindow {
     /// Groups only listed agents, after configured-row filtering. The returned
     /// count and focus index describe actual scroll children, including headers.
@@ -111,7 +123,13 @@ impl HerdrWindow {
                     continue;
                 }
                 row_cx.nest = look.nest_indent();
+                row_cx.host = None;
             }
+            let shown = if grouped {
+                PlaceShown::Tab
+            } else {
+                PlaceShown::Full
+            };
             for position in group {
                 let (index, agent, snapshot, _) = &listed[position];
                 // Each group member is visited once, so its lines move out.
@@ -122,7 +140,7 @@ impl HerdrWindow {
                 let gap = self.agent_row_gap(count);
                 count += 1;
                 list = list.child(
-                    self.agent_cell(*index, agent, snapshot, &row_cx, lines, gap, false, cx),
+                    self.agent_cell(*index, agent, snapshot, &row_cx, lines, gap, shown, cx),
                 );
             }
         }
@@ -269,10 +287,10 @@ impl HerdrWindow {
         }
     }
 
-    /// One agent's row, for the agents list, under its device's header, or
-    /// `nested` under its workspace, where the row above already names the
-    /// place: the agent of endpoint `index`, drawn in `row_cx`, that shows
-    /// its pane when clicked.
+    /// One agent's row, for the agents list, under its device's header or
+    /// group header, or under its workspace, naming as much of its place as
+    /// `shown` leaves to it: the agent of endpoint `index`, drawn in `row_cx`,
+    /// that shows its pane when clicked.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn agent_cell(
         &self,
@@ -282,7 +300,7 @@ impl HerdrWindow {
         row_cx: &RowContext,
         lines: Vec<Vec<tokens::ResolvedToken>>,
         gap: f32,
-        nested: bool,
+        shown: PlaceShown,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let rows = layout_for(self.config.layout.mode);
@@ -300,7 +318,15 @@ impl HerdrWindow {
         let menu_open = selected && self.pane_menu_target() == Some(id.as_str());
         let name = agent_name(agent);
         let pane = pane_name(agent, snapshot, name);
-        let place = (!nested).then(|| agent_place(agent, snapshot)).flatten();
+        let place = match shown {
+            PlaceShown::Full => agent_place(agent, snapshot),
+            // The tab takes the workspace's slot; without one the row keeps
+            // to one line, as under the workspace's own row.
+            PlaceShown::Tab => agent_place(agent, snapshot)
+                .and_then(|(_, tab)| tab)
+                .map(|tab| (tab, None)),
+            PlaceShown::Hidden => None,
+        };
         let state = state_label(agent, status_text(agent.agent_status));
         let spoken = crate::sidebar::accessibility::agent_name(
             name,

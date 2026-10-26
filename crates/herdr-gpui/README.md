@@ -925,7 +925,9 @@ one listed agent keeps its normal row; two or more get an initially expanded
 workspace dropdown. Its header shows the total and live idle (`I`),
 needs-attention (`!`, Blocked), and completed (`✓`, Done) counts, plus working
 (`W`) and unknown (`?`) when present. Counts continue updating while folded;
-completion is the daemon's current status, not a history. Dropdowns are local
+completion is the daemon's current status, not a history. The header names
+the workspace and device, so rows inside it name only their tab, beside a
+renamed pane's name; with no tab to name, a row is one line. Dropdowns are local
 to the window and separate for each device and daemon session. A singleton
 stays visible even if its former group was folded. Plugin-controlled agent
 views keep the entire panel flat, preserving their membership and order.
