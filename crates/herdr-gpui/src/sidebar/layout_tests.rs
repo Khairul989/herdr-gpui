@@ -19,6 +19,8 @@ use herdr_client::{ConnectOptions, ConnectTarget};
 use std::sync::Arc;
 
 #[cfg(test)]
+mod agent_groups;
+#[cfg(test)]
 mod agent_menu;
 #[cfg(test)]
 mod agent_rows;
@@ -702,6 +704,7 @@ pub(crate) fn fixture_window(window: &mut Window, cx: &mut Context<HerdrWindow>)
         integrations: Default::default(),
         install_warning_shown: false,
         version_notice_shown: false,
+        collapsed_agent_groups: Default::default(),
         collapsed_repos: Default::default(),
         wheel: WheelAccumulator::default(),
         sidebar_width: None,

@@ -130,6 +130,15 @@ impl HerdrWindow {
                 continue;
             }
             let selected = endpoint_index == self.selected_endpoint;
+            let live = if selected { &self.live } else { &endpoint.live };
+            // A plugin owns the whole panel order, even while a device drag
+            // temporarily replaces its Spaces rows with folded headers.
+            if self.config.show_agents && endpoint.enabled {
+                filtered |= live
+                    .snapshot
+                    .as_ref()
+                    .is_some_and(|snapshot| snapshot.agent_view_label.is_some());
+            }
             let endpoint_id = endpoint.id.clone();
             let mark = wash::HostMark::resolve(
                 &self.config.sidebar_style,
@@ -174,7 +183,6 @@ impl HerdrWindow {
                     .then_some(endpoint.label.as_str()),
             };
             let daemon = crate::listening_ports::Daemon::of(&endpoint.connection.target);
-            let live = if selected { &self.live } else { &endpoint.live };
             let Some(snapshot) = &live.snapshot else {
                 continue;
             };
@@ -591,15 +599,10 @@ impl HerdrWindow {
                     spaces.child(element)
                 };
             }
-            // Agent rows come after every host: the panel interleaves them.
-            // Only a host the panel lists can make the view a filtered one.
-            if self.config.show_agents && endpoint.enabled {
-                filtered |= snapshot.agent_view_label.is_some();
-            }
         }
         if agents_panel {
             (agents, agent_count, highlighted[1]) =
-                self.append_agent_rows(agents, indicators, look, width, cx);
+                self.append_agent_rows(agents, indicators, look, width, filtered, cx);
         }
         if sliding {
             window.request_animation_frame();

@@ -1,12 +1,15 @@
-//! The agents list: every listed host's agents in the panel's one order, so a
-//! blocked agent on one host can sit above an idle one on another.
+//! The separate Agents panel: singleton rows and conditional workspace groups,
+//! retaining configured membership and the panel's ordering source.
 
 use crate::{
     HerdrWindow, NavigationTarget,
     sidebar::{
         Indicators, agent_name,
-        agents::{agent_place, pane_name, state_label, status_text},
-        cell::{AgentRow, Cell, RowContext, RowData, layout_for},
+        agents::{
+            AgentGroupCounts, agent_group_key, agent_place, pane_name, state_label, status_text,
+            workspace_agent_groups,
+        },
+        cell::{AgentRow, Cell, Fold, RowContext, RowData, RowState, layout_for},
         layout::SidebarLook,
         line_height, tokens, wash,
     },
@@ -15,16 +18,15 @@ use gpui::{prelude::*, *};
 use herdr_client::protocol::{ClientShellAgent, ClientShellSnapshot};
 
 impl HerdrWindow {
-    /// Appends a row for each agent `panel_agents` lists, in that order, and
-    /// returns the list with how many rows it painted and where the selected
-    /// host's focused agent sits among them, for the reveal. A row's host
-    /// shapes its own context, as the agent may belong to any listed host.
+    /// Groups only listed agents, after configured-row filtering. The returned
+    /// count and focus index describe actual scroll children, including headers.
     pub(super) fn append_agent_rows(
         &self,
         mut list: Stateful<Div>,
         indicators: Indicators,
         look: SidebarLook,
         width: f32,
+        flat: bool,
         cx: &mut Context<Self>,
     ) -> (Stateful<Div>, usize, Option<usize>) {
         let font = &self.config.sidebar;
@@ -32,23 +34,40 @@ impl HerdrWindow {
         let multi = self.endpoints.len() > 1;
         let mut count = 0;
         let mut focused = None;
-        for (index, agent) in self.panel_agents() {
-            let Some(endpoint) = self.endpoints.get(index) else {
-                continue;
-            };
-            let selected = index == self.selected_endpoint;
-            let live = if selected { &self.live } else { &endpoint.live };
-            let Some(snapshot) = live.snapshot.as_deref() else {
-                continue;
-            };
-            let row_cx = RowContext {
+        let (listed, mut lines): (Vec<_>, Vec<_>) = self
+            .panel_agents()
+            .into_iter()
+            .filter_map(|(index, agent)| {
+                let endpoint = self.endpoints.get(index)?;
+                let live = if index == self.selected_endpoint {
+                    &self.live
+                } else {
+                    &endpoint.live
+                };
+                let snapshot = live.snapshot.as_deref()?;
+                let host = (multi && endpoint.id != crate::endpoint::LOCAL)
+                    .then_some(endpoint.label.as_str());
+                let lines = self.configured_agent_lines(agent, snapshot, host)?;
+                Some(((index, agent, snapshot, host), lines))
+            })
+            .unzip();
+        let keys: Vec<_> = listed
+            .iter()
+            .map(|(index, agent, snapshot, _)| {
+                agent_group_key(&self.endpoints[*index].id, snapshot, agent)
+            })
+            .collect();
+        for group in workspace_agent_groups(&keys, flat) {
+            let first = group[0];
+            let (index, agent, snapshot, host) = &listed[first];
+            let endpoint = &self.endpoints[*index];
+            let selected = *index == self.selected_endpoint;
+            let mut row_cx = RowContext {
                 indicators,
                 font,
                 theme,
                 look,
                 width,
-                // Agents list under their own heading, not under a host, but
-                // each carries its host's colour.
                 nest: 0.,
                 mark: wash::HostMark::resolve(
                     &self.config.sidebar_style,
@@ -56,21 +75,168 @@ impl HerdrWindow {
                     selected,
                     theme,
                 ),
-                host: (multi && endpoint.id != crate::endpoint::LOCAL)
-                    .then_some(endpoint.label.as_str()),
+                host: *host,
             };
-            let Some(lines) = self.configured_agent_lines(agent, snapshot, row_cx.host) else {
-                continue;
-            };
-            if selected && agent.focused {
-                focused = Some(count);
+            let grouped = group.len() >= 2;
+            let collapsed = grouped && self.collapsed_agent_groups.contains(&keys[first]);
+            if grouped {
+                let selected = group.iter().any(|&position| {
+                    let (index, agent, ..) = &listed[position];
+                    *index == self.selected_endpoint && agent.focused
+                });
+                if selected && collapsed {
+                    focused = Some(count);
+                }
+                let workspace =
+                    agent_place(agent, snapshot).map_or("Workspace", |(label, _)| label);
+                let label = host.map_or_else(
+                    || workspace.to_owned(),
+                    |host| format!("{workspace} · {host}"),
+                );
+                let counts = AgentGroupCounts::from_statuses(
+                    group
+                        .iter()
+                        .map(|&position| listed[position].1.agent_status),
+                );
+                list = list.child(self.agent_group_header(
+                    &keys[first],
+                    label,
+                    counts,
+                    selected && collapsed,
+                    &row_cx,
+                    cx,
+                ));
+                count += 1;
+                if collapsed {
+                    continue;
+                }
+                row_cx.nest = look.nest_indent();
             }
-            let gap = self.agent_row_gap(count);
-            count += 1;
-            list =
-                list.child(self.agent_cell(index, agent, snapshot, &row_cx, lines, gap, false, cx));
+            for position in group {
+                let (index, agent, snapshot, _) = &listed[position];
+                // Each group member is visited once, so its lines move out.
+                let lines = std::mem::take(&mut lines[position]);
+                if *index == self.selected_endpoint && agent.focused {
+                    focused = Some(count);
+                }
+                let gap = self.agent_row_gap(count);
+                count += 1;
+                list = list.child(
+                    self.agent_cell(*index, agent, snapshot, &row_cx, lines, gap, false, cx),
+                );
+            }
         }
         (list, count, focused)
+    }
+
+    pub(in crate::sidebar) fn toggle_agent_group(
+        &mut self,
+        key: &(String, String, String),
+        cx: &mut Context<Self>,
+    ) {
+        if !self.collapsed_agent_groups.remove(key) {
+            self.collapsed_agent_groups.insert(key.clone());
+        }
+        // A disclosure changes scroll-child indices even if pane focus holds.
+        self.sidebar_revealed[1].set(None);
+        cx.notify();
+    }
+
+    fn agent_group_header(
+        &self,
+        key: &(String, String, String),
+        label: String,
+        counts: AgentGroupCounts,
+        selected: bool,
+        row_cx: &RowContext,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        let collapsed = self.collapsed_agent_groups.contains(key);
+        let spoken = format!("{label}, {}", counts.description());
+        let hint = SharedString::from(spoken.clone());
+        let (foreground, surface) = (row_cx.theme.foreground, row_cx.theme.surface);
+        let toggle_key = key.clone();
+        let click_key = key.clone();
+        let id = format!("agent-group-{key:?}");
+        let probe = format!("agent-group-{}-{}-{}", key.0, key.1, key.2);
+        let disclosure = format!("agent-group-disclosure-{}-{}-{}", key.0, key.1, key.2);
+        let fold = Fold {
+            id: SharedString::from(format!("fold-{key:?}")).into(),
+            index: 0,
+            collapsed,
+            toggle: Box::new(
+                cx.listener(move |this, _, _, cx| this.toggle_agent_group(&toggle_key, cx)),
+            ),
+        };
+        let row = div()
+            .id(SharedString::from(id.clone()))
+            .debug_selector(move || probe.clone())
+            .relative()
+            .flex_none()
+            .flex()
+            .flex_col()
+            .px(px(row_cx.look.content_x()))
+            .py(px(row_cx.look.density.host_padding()))
+            .cursor_pointer()
+            .map(|row| {
+                let highlight = row_cx.look.highlight(
+                    &id,
+                    RowState {
+                        selected,
+                        ..Default::default()
+                    },
+                    row_cx.theme,
+                );
+                row_cx.look.washed(row, &id, row_cx.mark, highlight)
+            })
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(4.))
+                    .child(
+                        fold.element(row_cx.theme)
+                            .debug_selector(move || disclosure.clone()),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .child(crate::sidebar::label_text(&label)),
+                    )
+                    .child(
+                        div()
+                            .flex_none()
+                            .child(crate::sidebar::label_text(&counts.total().to_string())),
+                    ),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_wrap()
+                    .gap_x(px(6.))
+                    .min_w_0()
+                    .text_size(px(row_cx.font.size * 0.8))
+                    .line_height(px(line_height(row_cx.font) * 0.85))
+                    .text_color(rgb(row_cx.theme.muted))
+                    .children(
+                        counts
+                            .compact()
+                            .into_iter()
+                            .map(|part| div().flex_none().child(crate::sidebar::label_text(&part))),
+                    ),
+            )
+            .tooltip(move |_, cx| {
+                cx.new(|_| crate::usage::Hint {
+                    text: hint.clone(),
+                    foreground,
+                    surface,
+                })
+                .into()
+            })
+            .on_click(cx.listener(move |this, _, _, cx| this.toggle_agent_group(&click_key, cx)));
+        self.agent_group_item(row, spoken, selected, key.clone(), cx)
     }
 
     /// Whether the agents' rows follow a configured `[sidebar_layout.agents]`.

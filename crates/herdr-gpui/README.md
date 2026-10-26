@@ -920,11 +920,19 @@ order then follows Herdr's `ui.agent_panel_sort` (`priority` or `grouped`)
 unless it was toggled earlier or a plugin sets the agent view, which keeps the
 header shown while that view is active.
 
-Agents list in their own section below Spaces by default. Set top-level
-`agents_placement = "nested"`, or pick **Under workspaces** for **Agents
-placement** in **Settings > Sidebar**, to list each agent under the workspace
-it runs in instead; Spaces then takes the full sidebar height. The collapsed
-rail keeps its own agents section either way.
+Agents list in their own section below Spaces by default. A workspace with
+one listed agent keeps its normal row; two or more get an initially expanded
+workspace dropdown. Its header shows the total and live idle (`I`),
+needs-attention (`!`, Blocked), and completed (`✓`, Done) counts, plus working
+(`W`) and unknown (`?`) when present. Counts continue updating while folded;
+completion is the daemon's current status, not a history. Dropdowns are local
+to the window and separate for each device and daemon session. A singleton
+stays visible even if its former group was folded. Plugin-controlled agent
+views keep the entire panel flat, preserving their membership and order.
+Set top-level `agents_placement = "nested"`, or pick **Under workspaces** for
+**Agents placement** in **Settings > Sidebar**, to list each agent under the
+workspace it runs in instead; Spaces then takes the full sidebar height.
+The collapsed rail keeps its own agents section either way.
 
 A search field at the top of the sidebar finds devices, worktrees, and
 branches by name; while it holds text, results grouped by kind replace the
@@ -1187,11 +1195,14 @@ the shared pieces in `layouts/parts.rs`: a `Line` gives fixed pieces (icons,
 status, fold) their size, lets labels shrink to a share of the row, and hands
 the rest to the name, so the whole `minimal` layout is under a hundred lines.
 
-Agent names have small theme-tinted icons for every agent Herdr detects, selected
+Agent names have small icons for every agent Herdr detects, selected
 from the daemon's agent identity: brand marks for Pi, Claude Code, Codex (OpenAI),
 Gemini, Cursor, Devin, Antigravity, Cline, Mastra Code, OpenCode, GitHub Copilot,
 Kimi, Kiro, Amp, Grok, Hermes Agent, Kilo Code, Qoder CLI, Qwen Code, and Muse
 Code (Meta's mark), and lettermarks for oh-my-pi, Droid, Letta, and Maki.
+In the sidebar's agent rows and the collapsed rail, Claude Code, Codex, Gemini,
+Antigravity, GitHub Copilot, Devin, Kiro, and Amp marks use the brand colours
+Herdr's own sidebar uses; every other mark is tinted by the theme.
 Unknown or missing identities use a generic terminal icon, regardless of custom
 names.
 Icons sit immediately before the name, including orphan agents whose name is

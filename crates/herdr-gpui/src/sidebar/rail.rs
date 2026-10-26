@@ -355,7 +355,8 @@ impl HerdrWindow {
             } else {
                 theme.muted
             };
-            let icon_path = crate::icons::AgentIcon::from_identity(agent.agent.as_deref()).path();
+            let mark = crate::icons::AgentIcon::from_identity(agent.agent.as_deref());
+            let (icon_color, icon_path) = (mark.tint(icon_color), mark.path());
             // The host letter shares the workspace number's column. With one
             // host there is no letter, so the icon takes that column and still
             // starts on the badge's left edge.

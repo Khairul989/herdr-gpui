@@ -701,7 +701,12 @@ fn agent_mark(
         .left_0()
         .top(px((line_height(font) - size) / 2.))
         .size(px(size))
-        .child(svg().path(icon.path()).size_full().text_color(rgb(color)))
+        .child(
+            svg()
+                .path(icon.path())
+                .size_full()
+                .text_color(rgb(icon.tint(color))),
+        )
 }
 
 pub(crate) fn label_text(text: &str) -> impl IntoElement {

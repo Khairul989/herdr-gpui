@@ -2,7 +2,10 @@
 //! next, and numbered shortcuts step through, as Herdr's TUI steps through
 //! its own sidebar: every listed host's rows, top to bottom.
 
-use super::{agents::panel_agents, visible_workspace_entries};
+use super::{
+    agents::{agent_group_key, panel_agents, workspace_agent_groups},
+    visible_workspace_entries,
+};
 use crate::{HerdrWindow, controls::Command, state::LiveState};
 use herdr_client::protocol::{ClientShellAgent, ClientShellSnapshot};
 
@@ -57,12 +60,41 @@ impl HerdrWindow {
         panel_agents(self.listed_lives(), self.agent_sort)
     }
 
-    /// The agent panel's rows, whether or not the panel is shown, as Herdr
-    /// steps through its agents either way.
+    /// The agent panel's rows in the order it paints them, whether or not the
+    /// panel is shown, as Herdr steps through its agents either way. Agents
+    /// of one workspace follow its first agent, as the grouped panel paints
+    /// them; any plugin view keeps the whole panel flat. Collapsed groups
+    /// still count, and configured-row filtering is not applied, so stepping
+    /// reaches every listed agent.
     pub(crate) fn sidebar_agents(&self) -> Vec<Row<'_>> {
-        self.panel_agents()
+        let agents = self.panel_agents();
+        // A plugin's order is authoritative whether or not the panel shows;
+        // `listed_hosts` already excludes disabled hosts.
+        let flat = self
+            .listed_hosts()
+            .any(|(_, snapshot)| snapshot.agent_view_label.is_some());
+        let keys: Option<Vec<_>> = agents
+            .iter()
+            .map(|&(index, agent)| {
+                let snapshot = self.listed_hosts().find(|(host, _)| *host == index)?.1;
+                Some(agent_group_key(&self.endpoints[index].id, snapshot, agent))
+            })
+            .collect();
+        // An agent whose host has no snapshot cannot be keyed; stepping keeps
+        // the panel's own order rather than losing every agent.
+        let Some(keys) = keys else {
+            return agents
+                .into_iter()
+                .map(|(index, agent)| (index, agent.pane_id.as_str()))
+                .collect();
+        };
+        workspace_agent_groups(&keys, flat)
             .into_iter()
-            .map(|(index, agent)| (index, agent.pane_id.as_str()))
+            .flatten()
+            .map(|position| {
+                let (index, agent) = agents[position];
+                (index, agent.pane_id.as_str())
+            })
             .collect()
     }
 }
