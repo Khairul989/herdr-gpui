@@ -3,6 +3,7 @@
 //! list. The headers are the spaces list's own, so folding, menus, and the
 //! pinned header work as in every other layout.
 
+use super::agent_rows::PlaceShown;
 use crate::{
     HerdrWindow,
     sidebar::{Indicators, agents::sorted_agents, cell::RowContext, layout::SidebarLook, wash},
@@ -93,8 +94,16 @@ impl HerdrWindow {
                 focused = Some(count);
             }
             let gap = self.agent_row_gap(count);
-            list =
-                list.child(self.agent_cell(index, agent, snapshot, &row_cx, lines, gap, false, cx));
+            list = list.child(self.agent_cell(
+                index,
+                agent,
+                snapshot,
+                &row_cx,
+                lines,
+                gap,
+                PlaceShown::Full,
+                cx,
+            ));
             count += 1;
         }
         if count == 0 {

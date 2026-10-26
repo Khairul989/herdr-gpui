@@ -742,3 +742,103 @@ fn agent_groups_shortcuts_step_in_painted_order(cx: &mut gpui::TestAppContext) {
         assert_eq!(panes(view), ["p0", "p1", "p2", "p3"]);
     });
 }
+
+#[gpui::test]
+fn agent_groups_children_name_their_tab_not_the_workspace(cx: &mut gpui::TestAppContext) {
+    let (view, cx) = cx.add_window_view(|window, cx| {
+        let mut view = fixture_window(window, cx);
+        view.config.show_agents = true;
+        view
+    });
+    cx.simulate_resize(size(px(800.), px(900.)));
+    cx.run_until_parked();
+    let probe = |cx: &mut gpui::VisualTestContext, text: &str| {
+        cx.update(|window, cx| {
+            cx.default_global::<TextProbes>().0.clear();
+            full_draw(window, cx).clear(cx);
+            cx.global::<TextProbes>().0.get(text).map(|probe| probe.0)
+        })
+    };
+    // A lone agent has no header, so its own row names the workspace.
+    let alone = cx.debug_bounds("row-agent-p0").unwrap();
+    let workspace = probe(cx, "herdr").unwrap();
+    assert!(
+        alone.contains(&workspace.center()),
+        "{workspace:?} outside {alone:?}"
+    );
+
+    view.update(cx, |view, cx| {
+        let snapshot = Arc::make_mut(view.live.snapshot.as_mut().unwrap());
+        snapshot.agents[1].workspace_id = "w0".into();
+        snapshot.agents[1].tab_id = "t0".into();
+        cx.notify();
+    });
+    let workspace = probe(cx, "herdr").unwrap();
+    let tab = probe(cx, "tab 1").unwrap();
+    let header = cx.debug_bounds("agent-group-local-layout-test-w0").unwrap();
+    let child = cx.debug_bounds("row-agent-p1").unwrap();
+    // Probes keep the last paint of a text, so a child repeating the
+    // workspace would move its probe out of the header.
+    assert!(
+        header.contains(&workspace.center()),
+        "{workspace:?} outside {header:?}"
+    );
+    assert!(child.contains(&tab.center()), "{tab:?} outside {child:?}");
+
+    // Without a tab worth naming, a child keeps to one line.
+    view.update(cx, |view, cx| {
+        let snapshot = Arc::make_mut(view.live.snapshot.as_mut().unwrap());
+        snapshot.tabs.retain(|tab| tab.tab_id == "t0");
+        cx.notify();
+    });
+    assert!(probe(cx, "tab 1").is_none());
+    let single = cx.debug_bounds("row-agent-p1").unwrap();
+    assert!(
+        single.size.height < child.size.height,
+        "{single:?} vs {child:?}"
+    );
+}
+
+#[gpui::test]
+fn agent_groups_children_leave_the_host_to_their_header(cx: &mut gpui::TestAppContext) {
+    let (_view, cx) = cx.add_window_view(|window, cx| {
+        let mut view = fixture_window(window, cx);
+        view.live.snapshot = Some(Arc::new(group_snapshot([
+            AgentStatus::Idle,
+            AgentStatus::Done,
+        ])));
+        let mut remote = crate::endpoint::Endpoint::new(
+            "ssh:test".into(),
+            "Remote".into(),
+            ConnectTarget::Socket("/unused-agent-groups.sock".into()),
+            true,
+        );
+        remote.live.snapshot = view.live.snapshot.clone();
+        view.endpoints.push(remote);
+        view
+    });
+    cx.simulate_resize(size(px(800.), px(900.)));
+    cx.run_until_parked();
+    let host = cx.update(|window, cx| {
+        cx.default_global::<TextProbes>().0.clear();
+        full_draw(window, cx).clear(cx);
+        cx.global::<TextProbes>()
+            .0
+            .get("Remote")
+            .map(|probe| probe.0)
+    });
+    assert!(
+        cx.debug_bounds("agent-group-ssh:test-layout-test-w0")
+            .is_some()
+    );
+    // Probes keep the last paint of a text, and the remote group's rows paint
+    // last, so a child repeating the host would hold this probe.
+    for pane in ["p0", "p1"] {
+        let selector: &'static str = Box::leak(format!("agent-ssh:test-{pane}").into_boxed_str());
+        let row = cx.debug_bounds(selector).unwrap();
+        assert!(
+            host.is_none_or(|host| !row.contains(&host.center())),
+            "{pane} repeats its header's host"
+        );
+    }
+}
