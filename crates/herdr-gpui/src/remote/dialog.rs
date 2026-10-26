@@ -11,10 +11,7 @@ use super::{
 use crate::{HerdrWindow, config::Theme, fonts::StyledFont, menu::Page};
 use gpui::{prelude::*, *};
 use herdr_remote_control::control::Request;
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{sync::Arc, time::Duration};
 
 /// How often the dialog looks for a request to send, and redraws its ring.
 const STEP: Duration = Duration::from_millis(250);
@@ -82,7 +79,9 @@ impl HerdrWindow {
             loop {
                 let next = this.update(cx, |view, cx| {
                     let dialog = view.menu.remote_pairing.as_mut()?;
-                    let now = Instant::now();
+                    // GPUI's clock, which the poll timer below also runs on,
+                    // so a poll falls due as that timer's steps add up.
+                    let now = cx.background_executor().now();
                     let ticket = dialog.pairing.next(now);
                     if ticket.is_none() && dialog.pairing.countdown(now).is_some() {
                         cx.notify();
@@ -102,7 +101,8 @@ impl HerdrWindow {
                     let Some(dialog) = view.menu.remote_pairing.as_mut() else {
                         return false;
                     };
-                    dialog.pairing.receive(&ticket, result, Instant::now());
+                    let now = cx.background_executor().now();
+                    dialog.pairing.receive(&ticket, result, now);
                     if matches!(dialog.pairing.phase(), Phase::Approved { .. }) {
                         Supervisor::refresh(cx);
                     }
@@ -236,13 +236,14 @@ impl HerdrWindow {
 
     /// The QR with what the phone needs beside it; a placeholder square
     /// until the daemon has answered.
-    fn pairing_offer(&self, pairing: Option<&Pairing>, _cx: &mut Context<Self>) -> Div {
+    fn pairing_offer(&self, pairing: Option<&Pairing>, cx: &mut Context<Self>) -> Div {
         let theme = &self.theme;
         let showing = pairing.and_then(|pairing| match pairing.phase() {
             Phase::Showing { offer, qr, .. } => Some((offer, qr.clone())),
             _ => None,
         });
-        let countdown = pairing.and_then(|pairing| pairing.countdown(Instant::now()));
+        let now = cx.background_executor().now();
+        let countdown = pairing.and_then(|pairing| pairing.countdown(now));
         let square = match &showing {
             Some((_, qr)) => qr_square(qr.clone()).into_any_element(),
             None => div()
