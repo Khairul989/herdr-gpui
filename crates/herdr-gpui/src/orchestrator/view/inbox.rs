@@ -418,7 +418,11 @@ impl OrchestratorView {
             .items_center()
             .justify_center()
             .child(crate::animation_clock::looping(
-                look.icon("icons/refresh.svg", 14., look.theme.muted),
+                svg()
+                    .path("icons/refresh.svg")
+                    .size(px(14.))
+                    .flex_none()
+                    .text_color(rgb(look.theme.muted)),
                 SPIN,
                 |icon, delta| icon.with_transformation(Transformation::rotate(percentage(delta))),
             ))
