@@ -28,6 +28,7 @@ const STATUSES: [AgentStatus; 5] = [
     AgentStatus::Unknown,
 ];
 
+mod agent_groups;
 mod agent_order;
 mod change_counts;
 mod hierarchy;

@@ -140,6 +140,97 @@ pub(super) fn panel_agents<'a>(
         .collect()
 }
 
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(super) struct AgentGroupCounts {
+    pub(super) blocked: usize,
+    pub(super) done: usize,
+    pub(super) idle: usize,
+    pub(super) unknown: usize,
+    pub(super) working: usize,
+}
+
+impl AgentGroupCounts {
+    pub(super) fn from_statuses(statuses: impl IntoIterator<Item = AgentStatus>) -> Self {
+        let mut counts = Self::default();
+        for status in statuses {
+            *match status {
+                AgentStatus::Blocked => &mut counts.blocked,
+                AgentStatus::Done => &mut counts.done,
+                AgentStatus::Idle => &mut counts.idle,
+                AgentStatus::Unknown => &mut counts.unknown,
+                AgentStatus::Working => &mut counts.working,
+            } += 1;
+        }
+        counts
+    }
+
+    pub(super) fn total(&self) -> usize {
+        self.blocked + self.done + self.idle + self.unknown + self.working
+    }
+
+    pub(super) fn description(&self) -> String {
+        format!(
+            "{} agents, {} idle, {} need attention, {} completed, {} working, {} unknown",
+            self.total(),
+            self.idle,
+            self.blocked,
+            self.done,
+            self.working,
+            self.unknown
+        )
+    }
+
+    pub(super) fn compact(&self) -> Vec<String> {
+        let mut parts = vec![
+            format!("I {}", self.idle),
+            format!("! {}", self.blocked),
+            format!("✓ {}", self.done),
+        ];
+        if self.working > 0 {
+            parts.push(format!("W {}", self.working));
+        }
+        if self.unknown > 0 {
+            parts.push(format!("? {}", self.unknown));
+        }
+        parts
+    }
+}
+
+/// The identity a workspace's agents group under: endpoint, boot, workspace.
+/// Painting and stepping both key groups by it.
+pub(super) fn agent_group_key(
+    endpoint_id: &str,
+    snapshot: &ClientShellSnapshot,
+    agent: &ClientShellAgent,
+) -> (String, String, String) {
+    (
+        endpoint_id.to_owned(),
+        snapshot.boot_id.clone(),
+        agent.workspace_id.clone(),
+    )
+}
+
+/// Workspace groups occupy their first listed member's position, retaining
+/// member-relative order. A plugin view must retain its exact flat order.
+pub(super) fn workspace_agent_groups(
+    keys: &[(String, String, String)],
+    flat: bool,
+) -> Vec<Vec<usize>> {
+    if flat {
+        return (0..keys.len()).map(|index| vec![index]).collect();
+    }
+    let mut positions = std::collections::HashMap::new();
+    let mut groups: Vec<Vec<usize>> = Vec::new();
+    for (index, key) in keys.iter().enumerate() {
+        let position = *positions.entry(key).or_insert_with(|| {
+            groups.push(Vec::new());
+            groups.len() - 1
+        });
+        groups[position].push(index);
+    }
+    groups
+}
+
 /// What an agent is called wherever it is listed.
 pub(crate) fn agent_name(agent: &ClientShellAgent) -> &str {
     first_text(agent_names(agent), "agent")

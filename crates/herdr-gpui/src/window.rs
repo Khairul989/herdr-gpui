@@ -150,6 +150,7 @@ pub(crate) struct HerdrWindow {
     /// Code tabs' views, by tab.
     pub(crate) code_views:
         std::collections::HashMap<crate::browser::TabId, crate::code_view::CodeView>,
+    pub(crate) collapsed_agent_groups: std::collections::HashSet<(String, String, String)>,
     pub(crate) collapsed_repos: std::collections::HashSet<String>,
     pub(crate) config: config::Config,
     pub(crate) config_load: Option<Task<()>>,

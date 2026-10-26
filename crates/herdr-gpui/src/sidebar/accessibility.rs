@@ -17,6 +17,28 @@ impl HerdrWindow {
         self.chrome_stop(Region::Sidebar, button.role(Role::Button).aria_label(label))
     }
 
+    pub(super) fn agent_group_item<E: StatefulInteractiveElement>(
+        &self,
+        row: E,
+        name: String,
+        selected: bool,
+        key: (String, String, String),
+        cx: &mut Context<Self>,
+    ) -> E {
+        let row = self.chrome_stop(
+            Region::Sidebar,
+            row.role(Role::ListItem)
+                .aria_label(name)
+                .aria_selected(selected),
+        );
+        expandable(
+            row,
+            !self.collapsed_agent_groups.contains(&key),
+            cx.entity().downgrade(),
+            move |this, _, cx| this.toggle_agent_group(&key, cx),
+        )
+    }
+
     /// A workspace row as a list item named `name`. A repository's row folds
     /// its linked worktrees: `folds` is whether they are folded, and the
     /// endpoint and repository key that fold them.
