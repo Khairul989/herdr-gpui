@@ -974,6 +974,9 @@ sidebar's own marks:
   Superset's wave, and a gap runs round the frame while an agent is blocked.
 - **Braille**: every status a braille cell. Working spins, and a blocked cell
   empties and fills dot by dot.
+- **Braille Dots** (`braille-dots`): Herdr's dots with the braille spinner
+  while working: a hollow ring for idle, a filled disc for done, a small dot
+  for unknown, and a filled disc with a cross cut out of it when blocked.
 - **Orca**: after Orca, a stepping ring, a question bubble when blocked, and a
   ringed check when done.
 
@@ -1076,15 +1079,18 @@ header shown while that view is active.
 
 Agents list in their own section below Spaces by default. A workspace with
 one listed agent keeps its normal row; two or more get an initially expanded
-workspace dropdown. Its header shows the total and live idle (`I`),
+workspace dropdown. Its header sits on a faint accent band, with its dropdown
+arrow and total in that accent, and shows the total and live idle (`I`),
 needs-attention (`!`, Blocked), and completed (`✓`, Done) counts, plus working
 (`W`) and unknown (`?`) when present. Counts continue updating while folded;
 completion is the daemon's current status, not a history. The header names
 the workspace and device, so rows inside it name only their tab, beside a
 renamed pane's name; with no tab to name, a row is one line. Dropdowns are local
 to the window and separate for each device and daemon session. A singleton
-stays visible even if its former group was folded. Plugin-controlled agent
-views keep the entire panel flat, preserving their membership and order.
+stays visible even if its former group was folded. In `grouped` order, each
+device's workspaces with a dropdown come before its lone agents, so the
+collapsible groups stay together. Plugin-controlled agent views keep the
+entire panel flat, preserving their membership and order.
 Set top-level `agents_placement = "nested"`, or pick **Under workspaces** for
 **Agents placement** in **Settings > Sidebar**, to list each agent under the
 workspace it runs in instead; Spaces then takes the full sidebar height.

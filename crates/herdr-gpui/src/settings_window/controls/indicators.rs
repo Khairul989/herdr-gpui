@@ -13,6 +13,7 @@ pub(in crate::settings_window) fn set_label(icons: StatusIcons) -> &'static str 
         StatusIcons::Tiles => "Tiles",
         StatusIcons::Wave => "Wave",
         StatusIcons::Braille => "Braille",
+        StatusIcons::BrailleDots => "Braille Dots",
         StatusIcons::Orca => "Orca",
     }
 }
@@ -26,6 +27,7 @@ pub(in crate::settings_window) fn set_description(icons: StatusIcons) -> &'stati
         StatusIcons::Tiles => "Each mark on a tile tinted with its status color.",
         StatusIcons::Wave => "Superset's wave grid; every status drawn in its cells.",
         StatusIcons::Braille => "Braille cells; blocked fills and empties dot by dot.",
+        StatusIcons::BrailleDots => "Dots with a braille spinner; a crossed disc when blocked.",
         StatusIcons::Orca => "Orca's stepping ring, question bubble, and ringed check.",
     }
 }

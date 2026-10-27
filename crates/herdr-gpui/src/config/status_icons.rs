@@ -51,6 +51,9 @@ status_icons! {
     /// empties and fills when blocked, still cells otherwise.
     /// `dense-braille` was a variant of it and now reads as it.
     Braille => "braille" | "dense-braille",
+    /// Herdr's dots with the braille spinner while working, and a filled
+    /// disc with a cross cut out of it when blocked.
+    BrailleDots => "braille-dots",
     /// After Orca: a stepping ring while working, a question bubble when
     /// blocked, a ringed check when done.
     Orca => "orca",

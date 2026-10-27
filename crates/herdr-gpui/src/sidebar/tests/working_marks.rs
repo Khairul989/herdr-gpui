@@ -40,7 +40,9 @@ fn expected(icons: StatusIcons, status: AgentStatus) -> Option<&'static str> {
             Some("status-spin")
         }
         (AgentStatus::Working, StatusIcons::Wave) => Some("status-wave"),
-        (AgentStatus::Working, StatusIcons::Braille) => Some("status-braille"),
+        (AgentStatus::Working, StatusIcons::Braille | StatusIcons::BrailleDots) => {
+            Some("status-braille")
+        }
         (AgentStatus::Working, StatusIcons::Orca) => Some("status-orca-ring"),
         (AgentStatus::Blocked, StatusIcons::Wave) => Some("status-chase"),
         (AgentStatus::Blocked, StatusIcons::Braille) => Some("status-braille-fill"),

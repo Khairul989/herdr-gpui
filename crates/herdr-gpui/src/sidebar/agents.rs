@@ -210,10 +210,16 @@ pub(super) fn agent_group_key(
     )
 }
 
-/// Workspace groups occupy their first listed member's position, retaining
-/// member-relative order. A plugin view must retain its exact flat order.
+/// Workspace groups retain member-relative order. `grouped` lists one host's
+/// agents after another's, so inside each host's run the groups that show a
+/// disclosure, two agents or more, lead the lone-agent ones that have no list
+/// to unfold: every dropdown reads as one block above the plain rows, and the
+/// hosts keep their places. `priority` orders agents across hosts by urgency,
+/// so the groups keep their first member's place. A plugin view must retain
+/// its exact flat order.
 pub(super) fn workspace_agent_groups(
     keys: &[(String, String, String)],
+    sort: crate::preferences::AgentSort,
     flat: bool,
 ) -> Vec<Vec<usize>> {
     if flat {
@@ -227,6 +233,13 @@ pub(super) fn workspace_agent_groups(
             groups.len() - 1
         });
         groups[position].push(index);
+    }
+    if sort == crate::preferences::AgentSort::Grouped {
+        // Grouped lists each host's agents in turn, so its groups are
+        // contiguous; each run sorts stably, keeping its first member's place.
+        for run in groups.chunk_by_mut(|a, b| keys[a[0]].0 == keys[b[0]].0) {
+            run.sort_by_key(|group| group.len() < 2);
+        }
     }
     groups
 }
