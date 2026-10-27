@@ -40,6 +40,7 @@ pub(crate) mod sidebar;
 mod sidebar_style;
 mod sprites;
 pub(crate) mod status_bar;
+mod status_counts;
 mod status_icons;
 pub(crate) mod tab_layout;
 #[cfg(any(
@@ -121,6 +122,7 @@ pub(crate) use sidebar::{
 pub(crate) use sidebar_style::{ChangeCounts, DeviceFooter};
 pub use sidebar_style::{SelectMode, SidebarOverrides, SidebarStyle};
 pub use status_bar::StatusBar;
+pub use status_counts::StatusCounts;
 pub use status_icons::StatusIcons;
 use std::{
     collections::BTreeMap,
@@ -274,6 +276,8 @@ pub struct Config {
     pub sprites: SpritesConfig,
     /// Which status bar items show, and how compactly.
     pub status_bar: StatusBar,
+    /// How a workspace group's agent counts are drawn.
+    pub status_counts: StatusCounts,
     /// The set agent status is drawn with.
     pub status_icons: StatusIcons,
     /// How tab strips draw their tabs, from View > Tab Layout.
@@ -440,6 +444,7 @@ impl Default for Config {
             sound: SoundConfig::default(),
             sprites: SpritesConfig::default(),
             status_bar: StatusBar::default(),
+            status_counts: StatusCounts::default(),
             status_icons: StatusIcons::default(),
             tab_layout: TabLayoutMode::default(),
             // Tabs are terminal chrome, so they read in the monospace face the
@@ -516,6 +521,7 @@ struct Settings {
     sound: SoundConfig,
     sprites: SpritesConfig,
     status_bar: StatusBar,
+    status_counts: StatusCounts,
     status_icons: Option<status_icons::SavedIcons>,
     tab_layout: TabLayoutMode,
     tabs: FontSettings,
@@ -858,6 +864,7 @@ impl Config {
         config.smooth_scroll = settings.smooth_scroll.unwrap_or(true);
         // keep-sorted end
         config.status_bar = settings.status_bar;
+        config.status_counts = settings.status_counts;
         config.tab_layout = settings.tab_layout;
         let (status_icons, legacy_rail) = status_icons::SavedIcons::resolve(settings.status_icons);
         config.status_icons = status_icons;

@@ -39,7 +39,7 @@ fn agent_groups_live_counts_survive_collapse_and_narrow_width(cx: &mut gpui::Tes
         cx.default_global::<TextProbes>().0.clear();
         full_draw(window, cx).clear(cx);
         let probes = &cx.global::<TextProbes>().0;
-        for text in ["I 1", "! 2", "✓ 3", "W 4", "? 5"] {
+        for text in ["2", "4", "3", "1", "5"] {
             assert!(
                 probes.contains_key(text),
                 "missing live group count: {text}"
@@ -48,6 +48,7 @@ fn agent_groups_live_counts_survive_collapse_and_narrow_width(cx: &mut gpui::Tes
     });
     let header = cx.debug_bounds("agent-group-local-layout-test-w0").unwrap();
     cx.simulate_click(header.center(), Default::default());
+    let sidebar = cx.debug_bounds("sidebar").unwrap();
     cx.update(|window, cx| {
         view.update(cx, |view, cx| {
             let listing = Arc::make_mut(view.live.snapshot.as_mut().unwrap());
@@ -58,17 +59,15 @@ fn agent_groups_live_counts_survive_collapse_and_narrow_width(cx: &mut gpui::Tes
         cx.default_global::<TextProbes>().0.clear();
         full_draw(window, cx).clear(cx);
         let probes = &cx.global::<TextProbes>().0;
-        let sidebar = probes.get("I 2").unwrap().0;
-        for text in ["I 2", "! 1", "✓ 4", "W 3", "? 5"] {
+        for text in ["1", "3", "4", "2", "5"] {
             let (bounds, rendered, glyphs) = probes.get(text).unwrap();
             assert_eq!(rendered, text);
             assert!(*glyphs <= bounds.size.width, "{text} clipped: {bounds:?}");
             assert!(bounds.left() >= sidebar.left());
         }
     });
-    let sidebar = cx.debug_bounds("sidebar").unwrap();
     cx.update(|_, cx| {
-        for text in ["I 2", "! 1", "✓ 4", "W 3", "? 5"] {
+        for text in ["1", "3", "4", "2", "5"] {
             let bounds = cx.global::<TextProbes>().0[text].0;
             assert!(
                 bounds.right() <= sidebar.right(),
@@ -76,6 +75,14 @@ fn agent_groups_live_counts_survive_collapse_and_narrow_width(cx: &mut gpui::Tes
             );
         }
     });
+    // The header draws the configured style, not a fixed one.
+    view.update(cx, |view, cx| {
+        view.config.status_counts = crate::config::StatusCounts::Chips;
+        cx.notify();
+    });
+    cx.update(|window, cx| full_draw(window, cx).clear(cx));
+    assert!(cx.debug_bounds("agent-group-counts-chips").is_some());
+    assert!(cx.debug_bounds("agent-group-counts-dots").is_none());
     assert!(cx.debug_bounds("row-agent-p0").is_none());
 }
 
@@ -191,9 +198,10 @@ fn agent_groups_filter_before_zero_one_two_threshold(cx: &mut gpui::TestAppConte
         });
         cx.default_global::<TextProbes>().0.clear();
         full_draw(window, cx).clear(cx);
-        for text in ["I 1", "! 0", "✓ 0", "? 1"] {
-            assert!(cx.global::<TextProbes>().0.contains_key(text), "{text}");
-        }
+        let probes = &cx.global::<TextProbes>().0;
+        // Empty buckets never draw: every agent here is idle or unknown.
+        assert!(probes.contains_key("1"), "missing idle count");
+        assert!(!probes.contains_key("0"), "an empty bucket drew a count");
     });
     assert!(cx.debug_bounds(group).is_some());
     assert!(cx.debug_bounds("row-agent-p0").is_some());
@@ -501,13 +509,17 @@ fn agent_groups_narrow_headers_keep_counts_below_long_labels(cx: &mut gpui::Test
     let label = "A workspace with a deliberately long and descriptive name";
     let (_view, cx) = cx.add_window_view(|window, cx| {
         let mut view = fixture_window(window, cx);
-        let mut listing = group_snapshot([
-            AgentStatus::Idle,
-            AgentStatus::Blocked,
-            AgentStatus::Done,
-            AgentStatus::Working,
-            AgentStatus::Unknown,
-        ]);
+        let mut listing = group_snapshot(
+            [
+                (AgentStatus::Idle, 4),
+                (AgentStatus::Blocked, 1),
+                (AgentStatus::Done, 3),
+                (AgentStatus::Working, 2),
+                (AgentStatus::Unknown, 5),
+            ]
+            .into_iter()
+            .flat_map(|(status, count)| std::iter::repeat_n(status, count)),
+        );
         listing.workspaces[0].label = label.into();
         view.live.snapshot = Some(Arc::new(listing));
         view.sidebar_width = Some(160.);
@@ -542,7 +554,7 @@ fn agent_groups_narrow_headers_keep_counts_below_long_labels(cx: &mut gpui::Test
                 let (name, rendered, glyphs) = &probes[label];
                 assert!(rendered.ends_with('…'), "{mode:?} {font}: {rendered}");
                 assert!(*glyphs <= name.size.width);
-                for text in ["I 1", "! 1", "✓ 1", "W 1", "? 1"] {
+                for text in ["1", "2", "3", "4", "5"] {
                     let (bounds, rendered, glyphs) = &probes[text];
                     assert_eq!(rendered, text);
                     assert!(*glyphs <= bounds.size.width);

@@ -32,9 +32,6 @@ fn agent_groups_count_distinct_status_buckets_and_describe_every_bucket() {
         counts.description(),
         "15 agents, 1 idle, 2 need attention, 3 completed, 4 working, 5 unknown"
     );
-    assert_eq!(counts.compact(), ["I 1", "! 2", "✓ 3", "W 4", "? 5"]);
-    let idle = AgentGroupCounts::from_statuses([AgentStatus::Idle]);
-    assert_eq!(idle.compact(), ["I 1", "! 0", "✓ 0"]);
     assert_eq!(AgentGroupCounts::from_statuses([]).total(), 0);
 }
 

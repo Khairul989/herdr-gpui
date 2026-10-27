@@ -141,7 +141,7 @@ pub(super) fn panel_agents<'a>(
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
-pub(super) struct AgentGroupCounts {
+pub(crate) struct AgentGroupCounts {
     pub(super) blocked: usize,
     pub(super) done: usize,
     pub(super) idle: usize,
@@ -150,6 +150,16 @@ pub(super) struct AgentGroupCounts {
 }
 
 impl AgentGroupCounts {
+    /// The counts the settings preview draws: one blocked, two working, three
+    /// done, and two idle.
+    pub(crate) const SAMPLE: Self = Self {
+        blocked: 1,
+        done: 3,
+        idle: 2,
+        unknown: 0,
+        working: 2,
+    };
+
     pub(super) fn from_statuses(statuses: impl IntoIterator<Item = AgentStatus>) -> Self {
         let mut counts = Self::default();
         for status in statuses {
@@ -178,21 +188,6 @@ impl AgentGroupCounts {
             self.working,
             self.unknown
         )
-    }
-
-    pub(super) fn compact(&self) -> Vec<String> {
-        let mut parts = vec![
-            format!("I {}", self.idle),
-            format!("! {}", self.blocked),
-            format!("✓ {}", self.done),
-        ];
-        if self.working > 0 {
-            parts.push(format!("W {}", self.working));
-        }
-        if self.unknown > 0 {
-            parts.push(format!("? {}", self.unknown));
-        }
-        parts
     }
 }
 

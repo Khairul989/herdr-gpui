@@ -25,6 +25,8 @@ pub(crate) enum Preference {
     ShowSidebarSearch(bool),
     ShowRepositoryIcons(bool),
     ShowWindowControls(bool),
+    /// `status_counts`: how a group's agent counts are drawn.
+    StatusCounts(StatusCounts),
     /// `status_icons`: the set agent status is drawn with.
     StatusIcons(StatusIcons),
     /// `tab_layout`: how tab strips draw their tabs.
@@ -163,6 +165,9 @@ impl Config {
                     (None, "show_window_controls", Some(value.into()))
                 }
                 Preference::SmoothScroll(value) => (None, "smooth_scroll", Some(value.into())),
+                Preference::StatusCounts(value) => {
+                    (None, "status_counts", Some(value.as_str().into()))
+                }
                 Preference::StatusIcons(value) => {
                     (None, "status_icons", Some(value.as_str().into()))
                 }

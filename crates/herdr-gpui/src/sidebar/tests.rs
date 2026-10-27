@@ -31,6 +31,7 @@ const STATUSES: [AgentStatus; 5] = [
 mod agent_groups;
 mod agent_order;
 mod change_counts;
+mod counts;
 mod hierarchy;
 mod host_mark;
 mod pane_names;

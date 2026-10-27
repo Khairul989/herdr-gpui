@@ -228,6 +228,12 @@ pub(super) const CATALOG: &[Entry] = &[
         "Icons",
         "Dots, Solid, Outline, Tiles, Wave, Braille or Orca status icons. Working always moves.",
     ),
+    entry(
+        Section::Indicators,
+        "indicators-counts",
+        "Group counts",
+        "How a workspace group's agent counts are drawn: dots, chips, split, or one spotlight.",
+    ),
     entry(Section::Fonts, "fonts-terminal", "Terminal", ""),
     entry(Section::Fonts, "fonts-sidebar", "Sidebar", ""),
     entry(Section::Fonts, "fonts-tabs", "Tabs", ""),

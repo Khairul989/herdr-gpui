@@ -3,9 +3,11 @@
 //! moves there moves here too.
 use super::{SettingsWindow, ui};
 use crate::{
-    config::{StatusIcons, corners, preferences::Preference},
-    settings_window::controls::indicators::{set_description, set_label},
-    sidebar::{Indicators, status_indicator},
+    config::{StatusCounts, StatusIcons, corners, preferences::Preference},
+    settings_window::controls::indicators::{
+        count_description, count_label, set_description, set_label,
+    },
+    sidebar::{AgentGroupCounts, Indicators, counts_line, status_indicator},
 };
 use gpui::{prelude::*, *};
 use herdr_client::protocol::AgentStatus;
@@ -69,6 +71,29 @@ impl SettingsWindow {
                         StatusIcons::ALL
                             .iter()
                             .map(|&set| self.set_card(set, indicators.with_icons(set), cx)),
+                    ),
+            )
+            .child(ui::section(
+                theme,
+                "Group counts",
+                Some(ui::Source::HerdrUi),
+            ))
+            .child(
+                div()
+                    .relative()
+                    .debug_selector(|| "indicators-counts".into())
+                    // Search scrolls to the cards by these bounds.
+                    .child(crate::settings_window::search::track_bounds(
+                        "indicators-counts".into(),
+                    ))
+                    .flex()
+                    .flex_wrap()
+                    .gap(px(10.))
+                    .pt(px(4.))
+                    .children(
+                        StatusCounts::ALL
+                            .iter()
+                            .map(|&style| self.count_card(style, indicators, cx)),
                     ),
             )
     }
@@ -139,6 +164,68 @@ impl SettingsWindow {
                     .text_size(px(11.5))
                     .text_color(rgb(theme.subtext()))
                     .child(set_description(set)),
+            )
+    }
+
+    /// One counts style as a card: its name and a radio mark, the sample
+    /// counts drawn with it, and a line on what sets it apart. Clicking picks
+    /// it.
+    fn count_card(
+        &self,
+        style: StatusCounts,
+        indicators: Indicators,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        let theme = &self.theme;
+        let on = self.config.status_counts == style;
+        div()
+            .id(("indicator-counts", style as usize))
+            .debug_selector(move || format!("indicator-counts-{}", style.as_str()))
+            .w(px(CARD_WIDTH))
+            .flex()
+            .flex_col()
+            .gap(px(8.))
+            .p(px(10.))
+            .rounded(px(corners::CONTROL))
+            .border_1()
+            .border_color(rgb(if on { theme.primary() } else { theme.active }))
+            .bg(rgb(theme.surface))
+            .when(!on, |card| {
+                card.cursor_pointer()
+                    .hover(|card| card.border_color(rgb(theme.muted)))
+                    .on_click(
+                        cx.listener(move |this, _, _, cx| this.choose_status_counts(style, cx)),
+                    )
+            })
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .text_color(rgb(theme.foreground))
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child(count_label(style))
+                    .child(radio(theme, on)),
+            )
+            .child(
+                div()
+                    .rounded(px(corners::SMALL))
+                    .px(px(4.))
+                    .py(px(6.))
+                    .bg(rgb(theme.background))
+                    .child(counts_line(
+                        &AgentGroupCounts::SAMPLE,
+                        style,
+                        &self.config.sidebar,
+                        indicators,
+                        theme,
+                    )),
+            )
+            .child(
+                div()
+                    .text_size(px(11.5))
+                    .text_color(rgb(theme.subtext()))
+                    .child(count_description(style)),
             )
     }
 }
