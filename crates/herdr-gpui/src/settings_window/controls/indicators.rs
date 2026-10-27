@@ -2,7 +2,7 @@
 //! the edge rail. The Indicators page renders the choice; this keeps how a
 //! pick is saved.
 use super::*;
-use crate::config::{StatusIcons, preferences::Preference};
+use crate::config::{StatusCounts, StatusIcons, preferences::Preference};
 
 /// The name the Indicators page gives a set.
 pub(in crate::settings_window) fn set_label(icons: StatusIcons) -> &'static str {
@@ -29,6 +29,26 @@ pub(in crate::settings_window) fn set_description(icons: StatusIcons) -> &'stati
         StatusIcons::Braille => "Braille cells; blocked fills and empties dot by dot.",
         StatusIcons::BrailleDots => "Dots with a braille spinner; a crossed disc when blocked.",
         StatusIcons::Orca => "Orca's stepping ring, question bubble, and ringed check.",
+    }
+}
+
+/// The name the Indicators page gives a counts style.
+pub(in crate::settings_window) fn count_label(style: StatusCounts) -> &'static str {
+    match style {
+        StatusCounts::Dots => "Dots",
+        StatusCounts::Chips => "Chips",
+        StatusCounts::Split => "Split",
+        StatusCounts::Spotlight => "Spotlight",
+    }
+}
+
+/// One line on what sets a counts style apart, under its preview.
+pub(in crate::settings_window) fn count_description(style: StatusCounts) -> &'static str {
+    match style {
+        StatusCounts::Dots => "Colored dots and numbers; idle and unknown stay muted.",
+        StatusCounts::Chips => "Live statuses in tinted pills; idle and unknown stay plain.",
+        StatusCounts::Split => "Live counts on the left, quiet counts pushed to the right.",
+        StatusCounts::Spotlight => "One pill for the most urgent status, the rest as small counts.",
     }
 }
 
@@ -67,5 +87,25 @@ impl SettingsWindow {
             move || edits.into_iter().try_for_each(Config::save_preference),
             cx,
         );
+    }
+
+    /// Picks how a group's agent counts are drawn. The style already in use
+    /// saves nothing.
+    pub(in crate::settings_window) fn choose_status_counts(
+        &mut self,
+        style: StatusCounts,
+        cx: &mut Context<Self>,
+    ) {
+        if self.config.status_counts == style {
+            return;
+        }
+        let edit = Preference::StatusCounts(style);
+        #[cfg(test)]
+        if let Some(io) = self.controls.preference_io.clone() {
+            let load = io.load.clone();
+            self.save_with(move || (io.write)(edit), move || load(), false, cx);
+            return;
+        }
+        self.save_native(move || Config::save_preference(edit), cx);
     }
 }

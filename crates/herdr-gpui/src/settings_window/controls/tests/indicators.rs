@@ -1,5 +1,5 @@
 use super::*;
-use crate::config::{StatusIcons, preferences::Preference};
+use crate::config::{StatusCounts, StatusIcons, preferences::Preference};
 use crate::settings_window::controls::preferences::PreferenceIo;
 use std::sync::{Arc, Mutex};
 
@@ -29,6 +29,10 @@ fn indicators_page(
 
 fn card(set: StatusIcons) -> &'static str {
     Box::leak(format!("indicator-set-{}", set.as_str()).into_boxed_str())
+}
+
+fn counts_card(style: StatusCounts) -> &'static str {
+    Box::leak(format!("indicator-counts-{}", style.as_str()).into_boxed_str())
 }
 
 /// The page lists only this client's sets, each previewed with the sidebar's
@@ -77,6 +81,32 @@ fn clicking_a_card_saves_its_set_once(cx: &mut TestAppContext) {
         });
         cx.update(|window, cx| crate::sidebar::layout_tests::full_draw(window, cx).clear(cx));
         assert!(click(set, cx).is_empty(), "{set:?} saved again");
+    }
+}
+
+/// Clicking a counts card saves its style, and clicking the style in use
+/// saves nothing.
+#[gpui::test]
+fn clicking_a_counts_card_saves_its_style_once(cx: &mut TestAppContext) {
+    let (view, cx, edits) = indicators_page(cx);
+    let click = |style: StatusCounts, cx: &mut VisualTestContext| {
+        let choice = cx.debug_bounds(counts_card(style)).unwrap();
+        cx.simulate_click(choice.center(), Default::default());
+        cx.run_until_parked();
+        std::mem::take(&mut *edits.lock().unwrap())
+    };
+    assert!(
+        click(StatusCounts::Dots, cx).is_empty(),
+        "the default saved"
+    );
+    for &style in &StatusCounts::ALL[1..] {
+        assert_eq!(click(style, cx), [Preference::StatusCounts(style)]);
+        view.update(cx, |view, cx| {
+            view.config.status_counts = style;
+            cx.notify();
+        });
+        cx.update(|window, cx| crate::sidebar::layout_tests::full_draw(window, cx).clear(cx));
+        assert!(click(style, cx).is_empty(), "{style:?} saved again");
     }
 }
 

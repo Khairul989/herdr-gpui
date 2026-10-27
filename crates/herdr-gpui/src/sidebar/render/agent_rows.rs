@@ -243,22 +243,13 @@ impl HerdrWindow {
                             .child(crate::sidebar::label_text(&counts.total().to_string())),
                     ),
             )
-            .child(
-                div()
-                    .flex()
-                    .flex_wrap()
-                    .gap_x(px(6.))
-                    .min_w_0()
-                    .text_size(px(row_cx.font.size * 0.8))
-                    .line_height(px(line_height(row_cx.font) * 0.85))
-                    .text_color(rgb(row_cx.theme.muted))
-                    .children(
-                        counts
-                            .compact()
-                            .into_iter()
-                            .map(|part| div().flex_none().child(crate::sidebar::label_text(&part))),
-                    ),
-            )
+            .child(crate::sidebar::counts_line(
+                &counts,
+                self.config.status_counts,
+                row_cx.font,
+                row_cx.indicators,
+                row_cx.theme,
+            ))
             .tooltip(move |_, cx| {
                 cx.new(|_| crate::usage::Hint {
                     text: hint.clone(),

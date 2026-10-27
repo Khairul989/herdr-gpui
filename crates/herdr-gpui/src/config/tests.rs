@@ -49,6 +49,7 @@ mod sound_volume;
 mod status_bar;
 mod status_bar_awake_scope;
 mod status_bar_gpu;
+mod status_counts;
 mod status_icons;
 mod system_themes;
 mod tab_layout;
