@@ -265,6 +265,34 @@ fn agent_groups_follow_panel_priority_and_grouped_order(cx: &mut gpui::TestAppCo
 }
 
 #[gpui::test]
+fn agent_groups_put_disclosure_workspaces_above_lone_agents(cx: &mut gpui::TestAppContext) {
+    let (_view, cx) = cx.add_window_view(|window, cx| {
+        let mut view = fixture_window(window, cx);
+        // p0 alone in w0, p1 and p2 together in w1, p3 alone in w2.
+        let mut listing = group_snapshot([AgentStatus::Idle; 4]);
+        listing.agents[0].workspace_id = "w0".into();
+        listing.agents[1].workspace_id = "w1".into();
+        listing.agents[2].workspace_id = "w1".into();
+        listing.agents[3].workspace_id = "w2".into();
+        view.live.snapshot = Some(Arc::new(listing));
+        view.agent_sort = crate::preferences::AgentSort::Grouped;
+        view
+    });
+    cx.simulate_resize(size(px(800.), px(900.)));
+    cx.run_until_parked();
+    cx.update(|window, cx| full_draw(window, cx).clear(cx));
+    let header = cx.debug_bounds("agent-group-local-layout-test-w1").unwrap();
+    let child = cx.debug_bounds("row-agent-p1").unwrap();
+    let second = cx.debug_bounds("row-agent-p2").unwrap();
+    let lone = cx.debug_bounds("row-agent-p0").unwrap();
+    let other = cx.debug_bounds("row-agent-p3").unwrap();
+    assert!(header.bottom() <= child.top(), "{header:?} {child:?}");
+    assert!(child.bottom() <= second.top(), "{child:?} {second:?}");
+    assert!(second.bottom() <= lone.top(), "{second:?} {lone:?}");
+    assert!(lone.bottom() <= other.top(), "{lone:?} {other:?}");
+}
+
+#[gpui::test]
 fn agent_groups_isolate_hosts_and_session_boots_and_honor_empty_remote_views(
     cx: &mut gpui::TestAppContext,
 ) {

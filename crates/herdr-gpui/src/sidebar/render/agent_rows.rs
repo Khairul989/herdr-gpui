@@ -17,6 +17,12 @@ use crate::{
 use gpui::{prelude::*, *};
 use herdr_client::protocol::{ClientShellAgent, ClientShellSnapshot};
 
+/// Alpha of the accent band behind a workspace group's dropdown header: a
+/// tint that sets the header apart from the rows it heads, never a fill.
+const HEADER_TINT: u32 = 0x1c;
+/// The band under the pointer, one step stronger.
+const HEADER_HOVER_TINT: u32 = 0x2e;
+
 /// How much of where an agent runs its row names, given what the rows above
 /// it already say.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -69,7 +75,7 @@ impl HerdrWindow {
                 agent_group_key(&self.endpoints[*index].id, snapshot, agent)
             })
             .collect();
-        for group in workspace_agent_groups(&keys, flat) {
+        for group in workspace_agent_groups(&keys, self.agent_sort, flat) {
             let first = group[0];
             let (index, agent, snapshot, host) = &listed[first];
             let endpoint = &self.endpoints[*index];
@@ -173,6 +179,10 @@ impl HerdrWindow {
         let spoken = format!("{label}, {}", counts.description());
         let hint = SharedString::from(spoken.clone());
         let (foreground, surface) = (row_cx.theme.foreground, row_cx.theme.surface);
+        let primary = row_cx.theme.primary();
+        let accent = row_cx.theme.ink(primary);
+        let band = rgba((primary << 8) | HEADER_TINT);
+        let hover_band = rgba((primary << 8) | HEADER_HOVER_TINT);
         let toggle_key = key.clone();
         let click_key = key.clone();
         let id = format!("agent-group-{key:?}");
@@ -195,6 +205,8 @@ impl HerdrWindow {
             .flex_col()
             .px(px(row_cx.look.content_x()))
             .py(px(row_cx.look.density.host_padding()))
+            .bg(band)
+            .hover(move |style| style.bg(hover_band))
             .cursor_pointer()
             .map(|row| {
                 let highlight = row_cx.look.highlight(
@@ -214,6 +226,7 @@ impl HerdrWindow {
                     .gap(px(4.))
                     .child(
                         fold.element(row_cx.theme)
+                            .text_color(rgb(accent))
                             .debug_selector(move || disclosure.clone()),
                     )
                     .child(
@@ -226,6 +239,7 @@ impl HerdrWindow {
                     .child(
                         div()
                             .flex_none()
+                            .text_color(rgb(accent))
                             .child(crate::sidebar::label_text(&counts.total().to_string())),
                     ),
             )

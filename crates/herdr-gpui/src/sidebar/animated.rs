@@ -5,6 +5,7 @@
 //! the first frame under reduced motion, so each first frame is a complete,
 //! readable mark.
 
+mod braille_dots;
 mod grid;
 mod orca;
 
@@ -27,6 +28,7 @@ pub(super) fn mark(set: StatusIcons, status: AgentStatus, size: f32, color: u32)
         StatusIcons::Wave => grid::mark(status, size, color),
         StatusIcons::Orca => orca::mark(status, size, color),
         StatusIcons::Braille => braille_set(status, size, color),
+        StatusIcons::BrailleDots => braille_dots::mark(status, size, color),
         // The other sets load assets; only Dots' settled marks land here.
         _ => herdr_dot(status, size, color),
     }

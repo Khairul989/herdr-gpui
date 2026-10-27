@@ -88,7 +88,7 @@ impl HerdrWindow {
                 .map(|(index, agent)| (index, agent.pane_id.as_str()))
                 .collect();
         };
-        workspace_agent_groups(&keys, flat)
+        workspace_agent_groups(&keys, self.agent_sort, flat)
             .into_iter()
             .flatten()
             .map(|position| {
