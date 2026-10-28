@@ -208,8 +208,18 @@ zeroize              = "=1.9.1"
 # Line tables keep file:line in backtraces and crash reports while cutting most
 # of the debug info a full build writes and links for herdr-gpui. Use
 # `CARGO_PROFILE_DEV_DEBUG=full` for a debugger session that needs locals.
+#
+# Disk, not build time, is what these two cost. Incremental sessions for
+# herdr-gpui reached 2-4 GB each and were kept per feature set: `just ci`,
+# `qa-menu`, `integration-test` and `mockup` together left 44 GB of them, which
+# nothing ever prunes. Codegen units multiply the per-build object files the
+# same way (256 by default, each up to 110 MB for this crate). Set
+# `CARGO_PROFILE_DEV_INCREMENTAL=true` for a session where edit-rebuild speed
+# matters more than the disk it leaves behind.
 [profile.dev]
 debug = "line-tables-only"
+incremental = false
+codegen-units = 16
 
 # GPUI's build script embeds its own Windows manifest through embed-resource,
 # which would clash with Herdr's (crates/herdr-gpui/windows.manifest); this
