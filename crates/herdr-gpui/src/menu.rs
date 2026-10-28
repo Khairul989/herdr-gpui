@@ -3,6 +3,7 @@
 //! popup while one is open, and every modal action is fenced by the connection
 //! it was started under.
 
+mod appear;
 mod checkpoints;
 mod chrome;
 #[cfg(feature = "cloud")]
@@ -14,6 +15,7 @@ pub(crate) mod devices;
 mod fan_out;
 mod git;
 mod github;
+pub(crate) mod gitlab;
 mod open_checkout;
 mod open_link;
 mod page;
@@ -63,7 +65,7 @@ pub(crate) use {
     worktree_source::WorktreeSource,
 };
 
-pub(crate) use devices::{SettingsHint, enter as enter_key};
+pub(crate) use devices::{DeviceScope, SettingsHint, enter as enter_key};
 use page::WorkspaceMenuAction;
 use state::Submission;
 use workspace::WorkspaceTarget;

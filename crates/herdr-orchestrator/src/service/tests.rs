@@ -29,6 +29,7 @@ fn closing_the_view_does_not_cancel_an_accepted_action() {
 
 mod extras;
 mod glab_mapping;
+mod syncing_count;
 mod unreached;
 
 /// A worker for a fresh repository in `dir`, with its repository found,
@@ -59,6 +60,7 @@ pub(super) fn opened(dir: &std::path::Path) -> (Service, Worker, Host) {
         workspace_id: "w1".into(),
         token: None,
         data_root: Some(dir.join("data")),
+        gitlab_store: Default::default(),
         timing: Timing {
             reload: Duration::from_millis(20),
             sync: Duration::from_secs(3600),
