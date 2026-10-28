@@ -264,11 +264,11 @@ cd herdr-gpui
 just run
 ```
 
-`just run` uses the optimized release build with the QA menu enabled;
+`just run` uses the optimized release build;
 `just run-debug` is notably slower with a dense terminal on screen.
 On macOS both build a local bundle identified as `so.pen.herdr-gpui.dev`, so
 it never shares a Dock tile or icon cache with an installed release.
-Without `just`: `cargo run --locked --release -p herdr-gpui --features qa-menu`.
+Without `just`: `cargo run --locked --release -p herdr-gpui`.
 
 To compile and install the optimized executable on macOS, Linux, or Windows:
 
@@ -281,7 +281,7 @@ This installs `herdr-gpui` (`herdr-gpui.exe` on Windows, with
 into Cargo's bin directory, normally `~/.cargo/bin` or
 `%USERPROFILE%\.cargo\bin`, and replaces an earlier installation. Keep that directory on `PATH`; set `CARGO_INSTALL_ROOT`
 to use a different installation root (the executable goes in its `bin` directory).
-The build uses the pinned lockfile and default features, without the QA menu.
+The build uses the pinned lockfile and default features.
 On macOS this installs the standalone executable; use Homebrew above for the
 full app bundle. Linux needs the build dependencies below; Windows needs the
 Visual Studio C++ build tools and Windows SDK for the MSVC Rust toolchain.
@@ -304,7 +304,9 @@ and `libasound2-dev` for Rodio/CPAL native audio. CI and release builds use the
 same script. Linux binaries require the system ALSA shared library (`libasound2t64`
 on Ubuntu 24.04), a configured default audio device, and Vulkan for rendering.
 Audio normally routes through the desktop's ALSA plugin configuration; no CLI
-audio player is required. Custom notification sounds are MP3 only. See
+audio player is required. Terminal clipboard paste needs `wl-paste` (the
+`wl-clipboard` package) on Wayland or `xclip` on X11; the distribution packages
+and Nix build include these dependencies. Custom notification sounds are MP3 only. See
 [notification sounds](crates/herdr-gpui/README.md#notification-sounds).
 
 ### Windows
@@ -405,6 +407,13 @@ binary **client** socket, renders the surfaces it is sent, and sends semantic
 input back. Closing or detaching the GUI leaves the daemon and its terminals
 running.
 
+### macOS Git permission errors
+
+If Git in a Herdr UI terminal reports `Operation not permitted`, restarting the
+GUI alone does not restart an already-running daemon. For a recovery option and
+its risks, see the [macOS Git permission troubleshooting
+section](crates/herdr-gpui/README.md#macos-git-permission-troubleshooting).
+
 [Browser tabs](crates/herdr-gpui/README.md#browser-tabs) are the exception:
 Herdr has no browser panes, so web pages shown beside a workspace's terminals
 belong to the GUI alone. Agents in your panes open them with
@@ -415,10 +424,9 @@ forwarded ports, and its settings.
 
 ## Audio Test
 
-The QA menu is excluded from default Cargo builds, including published releases.
-`just run` enables it automatically; with Cargo, use
-`cargo run --locked --release -p herdr-gpui --features qa-menu`.
-To manually test native audio in that build, choose **QA > Play Sound**. It plays the built-in
+The QA menu is off by default in every build, including published releases;
+turn on **Settings > General > QA menu** (`qa_menu = true` under `[features]`)
+to show it. To manually test native audio, choose **QA > Play Sound**. It plays the built-in
 Done sound on the background Rodio worker, even without a daemon or active pane
 and even with notifications muted. `HERDR_DISABLE_SOUND` and `NEXTEST` still
 suppress playback. See [notification sounds](crates/herdr-gpui/README.md#notification-sounds)

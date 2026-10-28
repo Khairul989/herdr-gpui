@@ -171,7 +171,7 @@ impl OrchestratorView {
                     || snapshot
                         .sources
                         .iter()
-                        .any(|status| matches!(status.state, SyncState::Syncing)))
+                        .any(|status| matches!(status.state, SyncState::Syncing { .. })))
         });
         let searching = !self.query.trim().is_empty();
         // The pills narrow both tabs; each tab also has its own filters.
@@ -625,7 +625,7 @@ pub(super) fn source_mark(look: &Look, provider: Provider) -> AnyElement {
     let icon = match provider {
         Provider::Github => "icons/github.svg",
         Provider::Beads => "icons/beads.svg",
-        Provider::Gitlab => "icons/git-branch.svg",
+        Provider::Gitlab => "icons/gitlab.svg",
     };
     look.icon(icon, 12., look.theme.muted).into_any_element()
 }

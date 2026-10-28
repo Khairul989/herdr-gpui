@@ -18,7 +18,6 @@ use chrono::{DateTime, Utc};
 use herdr_client::ConnectTarget;
 use herdr_github::Tokens;
 use herdr_remote::teleport::{AgentKind, Host};
-use secrecy::SecretString;
 use sources::{recognize, statuses};
 use std::{
     collections::{HashMap, VecDeque},
@@ -31,6 +30,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+mod gitlab_source;
 mod sources;
 
 pub use sources::sources;
@@ -95,6 +95,8 @@ pub struct Request {
     /// The accounts GitHub is read with; each source uses the one that
     /// reads its repository's owner.
     pub token: Option<Tokens>,
+    /// Where GitLab tokens pasted in the account menu are saved.
+    pub gitlab_store: herdr_credentials::Store,
     /// The folder holding the databases, and agent-launcher's to carry
     /// over, in place of the platform's; tests set it.
     pub data_root: Option<PathBuf>,
@@ -133,7 +135,10 @@ pub struct Notice {
 /// How one source is doing.
 #[derive(Clone, Debug)]
 pub enum SyncState {
-    Syncing,
+    /// With the count its last sync reported, shown until this one ends.
+    Syncing {
+        count: Option<usize>,
+    },
     Synced {
         at: DateTime<Utc>,
         count: usize,
@@ -142,7 +147,7 @@ pub enum SyncState {
     Capped {
         count: usize,
     },
-    /// GitHub needs a signed-in account.
+    /// GitHub needs a signed-in account, or GitLab a token that works.
     SignIn,
     /// A provider or host this build cannot read yet, such as GitHub Enterprise.
     Unsupported,
@@ -305,9 +310,9 @@ struct Worker {
     /// Where each GitHub source's next incremental sync continues.
     resume: HashMap<SourceKey, github::Resume>,
     /// The GitLab token, once looked up, and the instance it is for; Refresh
-    /// looks again, so a new `glab auth login` is picked up without
-    /// reopening the view.
-    gitlab_token: Option<(String, Option<SecretString>)>,
+    /// and a refusal look again, so a new `glab auth login` or a renewed
+    /// connected account is picked up without reopening the view.
+    gitlab_token: Option<(String, Option<gitlab::account::Found>)>,
     cooldown: Option<Duration>,
 }
 
@@ -706,13 +711,25 @@ impl Worker {
             if !supported || self.retry.iter().any(|(waiting, _)| *waiting == key) {
                 continue;
             }
-            self.set_state(&key, SyncState::Syncing);
+            self.set_syncing(&key);
             self.publish();
             // Only this source's own GitHub reply may set its pause: a delay
             // left by a pull request lookup or another source must not apply.
             self.cooldown = None;
             let state = match self.sync_source(&key, token) {
-                Ok(state) => state,
+                // The view shows no sync times, so the log keeps them.
+                Ok(state) => {
+                    tracing::debug!(
+                        category = "orchestrator_sync",
+                        provider = ?key.provider,
+                        host = key.host.as_str(),
+                        repository = key.repository.as_str(),
+                        elapsed_ms = now.elapsed().as_millis(),
+                        state = ?state,
+                        "Orchestrator source synced"
+                    );
+                    state
+                }
                 Err(Error::Cancelled) => return,
                 Err(error) => {
                     let wait = retry_wait(&error, self.cooldown.take());
@@ -726,7 +743,11 @@ impl Worker {
                         "Orchestrator source sync failed"
                     );
                     self.retry.push((key.clone(), Instant::now() + wait));
-                    SyncState::Failed(Arc::new(error))
+                    match &error {
+                        // Waits as a failure does, but offers the sign-in.
+                        Error::Gitlab(source) if source.needs_sign_in() => SyncState::SignIn,
+                        _ => SyncState::Failed(Arc::new(error)),
+                    }
                 }
             };
             self.set_state(&key, state);
@@ -863,37 +884,11 @@ impl Worker {
                 })
             }
             Provider::Gitlab => {
-                let scheme = self
-                    .snapshot
-                    .repo
-                    .as_ref()
-                    .and_then(|info| info.remote.as_ref())
-                    .filter(|remote| remote.source == *key)
-                    .map_or(gitlab::Scheme::Https, |remote| {
-                        gitlab::Scheme::of_remote(&remote.url)
-                    });
-                let api = gitlab::Api::resolve(&key.host, scheme);
-                if self
-                    .gitlab_token
-                    .as_ref()
-                    .is_none_or(|(instance, _)| *instance != api.instance)
-                {
-                    let token = gitlab::token(&api.instance);
-                    self.gitlab_token = Some((api.instance.clone(), token));
-                }
-                let token = self
-                    .gitlab_token
-                    .as_ref()
-                    .and_then(|(_, token)| token.as_ref());
                 let previous = store.checkpoint(key)?;
-                let cancelled = &self.cancelled;
-                let listing = gitlab::sync(
-                    (key, &api),
-                    token,
-                    previous.as_ref(),
-                    &|| cancelled.load(Ordering::Relaxed),
-                    &mut self.cooldown,
-                )?;
+                let listing = self.gitlab_listing(key, previous.as_ref())?;
+                let Some(store) = self.store.as_mut() else {
+                    return Ok(SyncState::Unsupported);
+                };
                 let count = listing.items.len();
                 if !listing.complete || !writable {
                     self.uncached.insert(key.clone(), listing.items);

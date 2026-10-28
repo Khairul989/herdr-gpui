@@ -52,6 +52,8 @@ pub(crate) struct MenuState {
     pub page: Option<Page>,
     pub(crate) application: Option<crate::menus::in_window::OpenMenu>,
     pub(crate) application_bar: crate::menus::in_window::Geometry,
+    /// How the open popup, or the dimming a closed dialog left, moves.
+    pub(crate) appear: super::appear::Appear,
     /// Written by the menu's layout, read when presenting Windows pages.
     #[cfg(any(windows, test, feature = "integration-test"))]
     pub(crate) cover: std::rc::Rc<std::cell::Cell<Cover>>,
@@ -158,6 +160,8 @@ pub(crate) struct MenuState {
     pub(super) github_token: Option<Entity<crate::search_input::SearchInput>>,
     /// Logins this window already toasted as waiting on GitHub App approval.
     pub(super) github_toasted: std::collections::HashSet<String>,
+    /// The GitLab page's instances, fields, and work under way.
+    pub(crate) gitlab: super::gitlab::GitLabMenu,
     /// Saved devices whose removal is running, by endpoint ID. Kept after
     /// success until the catalog drops the device, so its header pulses
     /// until it disappears; the confirmation closes as soon as it starts.
@@ -325,6 +329,7 @@ impl MenuState {
             page: None,
             application: None,
             application_bar: Default::default(),
+            appear: Default::default(),
             #[cfg(any(windows, test, feature = "integration-test"))]
             cover: Default::default(),
             device_setup: None,
@@ -392,6 +397,7 @@ impl MenuState {
             github_adding: None,
             github_token: None,
             github_toasted: Default::default(),
+            gitlab: Default::default(),
             removing_devices: Default::default(),
             github_selected: None,
             github_scroll: ScrollHandle::new(),
@@ -448,6 +454,10 @@ impl MenuState {
         self.github_account = None;
         self.github_adding = None;
         self.github_token = None;
+        // Closing the menu stops a GitLab connection, as it does GitHub's.
+        self.gitlab.connecting = None;
+        self.gitlab.form = false;
+        self.gitlab.stop_lookups();
         self.page = None;
         if let Some(palette) = self.palette.take() {
             self.palette_resume = Some(palette.resume());

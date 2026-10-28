@@ -6,7 +6,7 @@
 
 use super::{
     Event, OrchestratorView, PaneDrag, Resize,
-    look::{BLUE, GREEN, Look, MAGENTA, RED, YELLOW, age},
+    look::{BLUE, GREEN, Look, MAGENTA, RED, YELLOW},
     rows::{Sort, Tab},
 };
 use crate::{
@@ -302,16 +302,25 @@ impl OrchestratorView {
             [only] => only.name(),
             many => format!("{} projects", many.len()),
         };
-        // Each backend once, across every repository: syncing while any is,
-        // failed or waiting for a sign-in if any is, else what was synced.
-        let mut providers: Vec<(Provider, Vec<&SyncState>)> = Vec::new();
-        for status in self.repos.iter().flat_map(|repo| &repo.snapshot.sources) {
-            match providers
-                .iter_mut()
-                .find(|(provider, _)| *provider == status.key.provider)
-            {
-                Some((_, states)) => states.push(&status.state),
-                None => providers.push((status.key.provider, vec![&status.state])),
+        // Each backend once, across every repository, with the items each
+        // repository holds from it for a sync that has not reported a count.
+        let mut providers: Vec<(Provider, Vec<(&SyncState, usize)>)> = Vec::new();
+        for repo in &self.repos {
+            for status in &repo.snapshot.sources {
+                let held = repo
+                    .snapshot
+                    .items
+                    .iter()
+                    .filter(|item| item.key.source == status.key)
+                    .count();
+                let state = (&status.state, held);
+                match providers
+                    .iter_mut()
+                    .find(|(provider, _)| *provider == status.key.provider)
+                {
+                    Some((_, states)) => states.push(state),
+                    None => providers.push((status.key.provider, vec![state])),
+                }
             }
         }
         let github = providers
@@ -321,45 +330,29 @@ impl OrchestratorView {
             .into_iter()
             .enumerate()
             .map(|(index, (provider, states))| {
-                let any = |wanted: fn(&SyncState) -> bool| states.iter().any(|state| wanted(state));
-                let (text, color, sign_in) = if any(|state| matches!(state, SyncState::Syncing)) {
-                    ("syncing\u{2026}".to_owned(), look.hue(BLUE), false)
-                } else if any(|state| matches!(state, SyncState::Failed(_))) {
-                    ("failed".to_owned(), look.hue(RED), false)
-                } else if any(|state| matches!(state, SyncState::SignIn)) {
-                    ("sign in".to_owned(), look.hue(YELLOW), true)
-                } else {
-                    let count: usize = states
-                        .iter()
-                        .map(|state| match state {
-                            SyncState::Synced { count, .. } | SyncState::Capped { count } => *count,
-                            _ => 0,
-                        })
-                        .sum();
-                    let at = states
-                        .iter()
-                        .filter_map(|state| match state {
-                            SyncState::Synced { at, .. } => Some(*at),
-                            _ => None,
-                        })
-                        .max();
-                    match at {
-                        // A count of nothing synced says no more than the time.
-                        Some(at) if count == 0 => (synced(at), look.hue(GREEN), false),
-                        Some(at) => (
-                            format!("{count} \u{00b7} {}", synced(at)),
-                            look.hue(GREEN),
-                            false,
-                        ),
-                        None => ("not supported yet".to_owned(), theme.muted, false),
-                    }
+                let (state, text) = source_summary(&states);
+                let sign_in = state == SourceState::SignIn;
+                let indicator = match state {
+                    SourceState::Syncing => spinner(10., look.hue(BLUE)),
+                    SourceState::Failed => look.dot(look.hue(RED), 6.).into_any_element(),
+                    SourceState::SignIn => look.dot(look.hue(YELLOW), 6.).into_any_element(),
+                    SourceState::Synced => look.dot(look.hue(GREEN), 6.).into_any_element(),
+                    SourceState::Unsupported => look.dot(theme.muted, 6.).into_any_element(),
                 };
                 source_chip(look, ("orchestrator-source", index), provider)
-                    .child(look.dot(color, 6.))
-                    .child(div().text_color(rgb(theme.muted)).child(text))
+                    .child(indicator)
+                    .when(!text.is_empty(), |el| {
+                        el.child(div().text_color(rgb(theme.muted)).child(text))
+                    })
                     .when(sign_in, |el| {
-                        el.cursor_pointer()
-                            .on_click(cx.listener(|_, _, _, cx| cx.emit(Event::SignIn)))
+                        el.debug_selector(move || {
+                            format!(
+                                "orchestrator-sign-in-{}",
+                                provider_name(provider).to_lowercase()
+                            )
+                        })
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |_, _, _, cx| cx.emit(Event::SignIn(provider))))
                     })
             });
         // A repository without a GitHub remote has no GitHub source, which
@@ -417,15 +410,7 @@ impl OrchestratorView {
             .flex()
             .items_center()
             .justify_center()
-            .child(crate::animation_clock::looping(
-                svg()
-                    .path("icons/refresh.svg")
-                    .size(px(14.))
-                    .flex_none()
-                    .text_color(rgb(look.theme.muted)),
-                SPIN,
-                |icon, delta| icon.with_transformation(Transformation::rotate(percentage(delta))),
-            ))
+            .child(spinner(14., look.theme.muted))
             .into_any_element()
     }
 
@@ -561,7 +546,7 @@ impl OrchestratorView {
     fn render_sort_menu(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let look = &self.look;
         let theme = &look.theme;
-        deferred(
+        deferred(crate::motion::pop_in(
             div()
                 .absolute()
                 .top(px(120.))
@@ -599,7 +584,8 @@ impl OrchestratorView {
                             cx.notify();
                         }))
                 })),
-        )
+            "orchestrator-sort-menu",
+        ))
     }
 
     fn render_banners(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
@@ -632,9 +618,7 @@ impl OrchestratorView {
             }
             for status in &snapshot.sources {
                 let text = match &status.state {
-                    SyncState::Failed(error) => {
-                        format!("{}: {error}", provider_name(status.key.provider))
-                    }
+                    SyncState::Failed(error) => failure_text(status.key.provider, error),
                     SyncState::Capped { count } => format!(
                         "{} has more than {count} items; the newest are shown and not cached.",
                         provider_name(status.key.provider)
@@ -673,11 +657,78 @@ const FACETS_WIDTH: f32 = 200.;
 const SPIN: std::time::Duration = std::time::Duration::from_millis(900);
 const FACET_LABELS: usize = 12;
 
-/// "synced now", "synced 4m ago": when a source last finished a sync.
-fn synced(at: chrono::DateTime<chrono::Utc>) -> String {
-    match age(Some(at), chrono::Utc::now()).as_str() {
-        "now" => "synced now".into(),
-        ago => format!("synced {ago} ago"),
+/// The busy Refresh icon, turning, also standing for a source's sync.
+fn spinner(size: f32, color: u32) -> AnyElement {
+    crate::animation_clock::looping(
+        svg()
+            .path("icons/refresh.svg")
+            .size(px(size))
+            .flex_none()
+            .text_color(rgb(color)),
+        SPIN,
+        |icon, delta| icon.with_transformation(Transformation::rotate(percentage(delta))),
+    )
+    .into_any_element()
+}
+
+/// What a backend's chip shows across every repository reading it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum SourceState {
+    Syncing,
+    Failed,
+    SignIn,
+    Synced,
+    Unsupported,
+}
+
+/// A backend's state and count from each repository's `(state, held)`,
+/// where `held` is how many of its items that repository shows now, counted
+/// for a first sync that has no count of its own yet. A sync keeps the count
+/// the chip showed, with a spinner for the dot; a failure or missing sign-in
+/// says so instead. When it synced is left to the log.
+pub(super) fn source_summary(states: &[(&SyncState, usize)]) -> (SourceState, String) {
+    let any = |wanted: fn(&SyncState) -> bool| states.iter().any(|(state, _)| wanted(state));
+    let syncing = any(|state| matches!(state, SyncState::Syncing { .. }));
+    if !syncing {
+        if any(|state| matches!(state, SyncState::Failed(_))) {
+            return (SourceState::Failed, "failed".to_owned());
+        }
+        if any(|state| matches!(state, SyncState::SignIn)) {
+            return (SourceState::SignIn, "sign in".to_owned());
+        }
+    }
+    let counted = any(|state| state.count().is_some());
+    let count: usize = states
+        .iter()
+        .map(|(state, held)| match state {
+            SyncState::Syncing { count: None } => *held,
+            state => state.count().unwrap_or(0),
+        })
+        .sum();
+    // A first sync has no count until it holds something.
+    let text = if counted || count > 0 {
+        count.to_string()
+    } else {
+        String::new()
+    };
+    if syncing {
+        (SourceState::Syncing, text)
+    } else if counted {
+        (SourceState::Synced, text)
+    } else {
+        (SourceState::Unsupported, "not supported yet".to_owned())
+    }
+}
+
+/// A failed sync's banner text, led by its backend's name unless the error
+/// already starts with it, as "Beads is not installed…" does.
+pub(super) fn failure_text(provider: Provider, error: &impl std::fmt::Display) -> String {
+    let name = provider_name(provider);
+    let error = error.to_string();
+    if error.starts_with(name) {
+        error
+    } else {
+        format!("{name}: {error}")
     }
 }
 
@@ -708,14 +759,16 @@ fn source_chip(look: &Look, id: (&'static str, usize), provider: Provider) -> St
         .child(provider_name(provider))
 }
 
-/// A backend's mark: GitHub's logo, else a short colored tag.
+/// A backend's mark: GitHub's or GitLab's logo, else a short colored tag.
 pub(super) fn provider_mark(look: &Look, provider: Provider) -> AnyElement {
     match provider {
         Provider::Github => look
             .icon("icons/github.svg", 12., look.theme.subtext())
             .into_any_element(),
+        Provider::Gitlab => look
+            .icon("icons/gitlab.svg", 12., look.theme.subtext())
+            .into_any_element(),
         Provider::Beads => look.badge("bd", MAGENTA).into_any_element(),
-        Provider::Gitlab => look.badge("gl", RED).into_any_element(),
     }
 }
 
